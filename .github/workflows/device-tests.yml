@@ -46,11 +46,7 @@ jobs:
           ram-size: 2048M
           emulator-boot-timeout: 300
           disable-animations: true
-          script: |
-            if ! ./gradlew :app:connectedDebugAndroidTest --no-daemon --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process; then
-              adb logcat -d -s AndroidRuntime AetherRuntime
-              exit 1
-            fi
+          script: bash .github/scripts/device-tests.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
