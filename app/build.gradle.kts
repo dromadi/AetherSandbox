@@ -54,4 +54,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.test.runner)
     androidTestImplementation(libs.test.ext)
+    androidTestImplementation(libs.test.uiautomator)
 }

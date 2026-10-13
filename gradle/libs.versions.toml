@@ -9,6 +9,7 @@ coroutines = "1.10.2"
 junit = "4.13.2"
 testRunner = "1.6.2"
 testExt = "1.2.1"
+uiautomator = "2.3.0"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose" }
@@ -23,6 +24,7 @@ coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", vers
 junit = { module = "junit:junit", version.ref = "junit" }
 test-runner = { module = "androidx.test:runner", version.ref = "testRunner" }
 test-ext = { module = "androidx.test.ext:junit", version.ref = "testExt" }
+test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,18 +1,57 @@
 package com.aether.sandbox
 
 import android.content.Context
+import android.content.Intent
+import android.app.ActivityManager
+import android.os.Process
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.aether.sandbox.core.VirtualClassLoader
+import com.aether.sandbox.core.ProxyActivity
 import com.aether.sandbox.data.SandboxRepository
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 
 @RunWith(AndroidJUnit4::class)
 class GuestRuntimeTest {
+    @Test fun proxyActivityRunsGuestInAnotherProcessAndPersistsCounter() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val host = instrumentation.targetContext
+        val source = File(host.cacheDir, "ui-fixture.apk")
+        instrumentation.context.assets.open("fixture.apk").use { input -> source.outputStream().use { input.copyTo(it) } }
+        val repository = SandboxRepository(host)
+        val record = repository.importApk(Uri.fromFile(source))
+        val device = UiDevice.getInstance(instrumentation)
+        fun launch() = host.startActivity(Intent(host, ProxyActivity::class.java)
+            .putExtra(ProxyActivity.EXTRA_ID, record.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        try {
+            launch()
+            val appeared = device.wait(Until.hasObject(By.textContains("Persistent counter: 0")), 15000)
+            assertTrue(device.findObject(By.textStartsWith("Fixture gagal dimuat"))?.text ?: "Guest view did not appear", appeared)
+            val process = host.getSystemService(ActivityManager::class.java).runningAppProcesses.orEmpty()
+                .first { it.processName == "${host.packageName}:virtual_process" }
+            assertNotEquals(Process.myPid(), process.pid)
+            assertEquals(Process.myUid(), process.uid)
+            device.findObject(By.text("Increment isolated counter")).click()
+            assertTrue(device.wait(Until.hasObject(By.textContains("Persistent counter: 1")), 5000))
+            device.pressBack()
+            device.waitForIdle()
+            launch()
+            assertTrue("Counter did not persist on relaunch", device.wait(Until.hasObject(By.textContains("Persistent counter: 1")), 10000))
+        } finally {
+            device.pressBack()
+            device.waitForIdle()
+            repository.delete(record.id)
+            source.delete()
+        }
+    }
+
     @Test fun fixtureLoadsAndInstancesKeepIndependentPersistentState() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val host = instrumentation.targetContext
