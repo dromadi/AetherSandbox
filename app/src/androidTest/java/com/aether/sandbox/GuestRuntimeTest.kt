@@ -38,7 +38,7 @@ class GuestRuntimeTest {
                 .first { it.processName == "${host.packageName}:virtual_process" }
             assertNotEquals(Process.myPid(), process.pid)
             assertEquals(Process.myUid(), process.uid)
-            device.findObject(By.text("Increment isolated counter")).click()
+            device.findObject(By.text(java.util.regex.Pattern.compile("Increment isolated counter", java.util.regex.Pattern.CASE_INSENSITIVE))).click()
             assertTrue(device.wait(Until.hasObject(By.textContains("Persistent counter: 1")), 5000))
             device.pressBack()
             device.waitForIdle()
