@@ -2,11 +2,13 @@ package com.aether.sandbox.core
 
 import android.os.Bundle
 import android.os.Process
+import android.util.Log
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.aether.sandbox.api.GuestLifecycle
@@ -25,6 +27,7 @@ class ProxyActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(this) { finish() }
         val loading = TextView(this).apply { text = "Memuat fixture…"; gravity = Gravity.CENTER }
         setContentView(loading)
         val repository = SandboxRepository(this)
@@ -91,7 +94,7 @@ class ProxyActivity : ComponentActivity() {
     private fun closeGuest() {
         val current = guest
         guest = null
-        runCatching { current?.close() }
+        runCatching { current?.close() }.onFailure { Log.e("AetherRuntime", "Guest cleanup failed", it) }
     }
 
     override fun onDestroy() {
@@ -101,8 +104,13 @@ class ProxyActivity : ComponentActivity() {
         val job = loadingJob
         job?.cancel()
         // Cancellation does not interrupt file IO immediately. Keep the lease until loading exits.
-        if (job == null || job.isCompleted) runCatching { held?.close() }
-        else job.invokeOnCompletion { runCatching { held?.close() } }
+        val release = {
+            runCatching { held?.close() }
+                .onFailure { Log.e("AetherRuntime", "Runtime lease release failed", it) }
+            Unit
+        }
+        if (job == null || job.isCompleted) release()
+        else job.invokeOnCompletion { release() }
         super.onDestroy()
     }
 

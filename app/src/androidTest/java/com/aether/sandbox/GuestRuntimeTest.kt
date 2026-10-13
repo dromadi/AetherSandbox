@@ -43,6 +43,7 @@ class GuestRuntimeTest {
         val device = UiDevice.getInstance(instrumentation)
         fun launch() = host.startActivity(Intent(host, ProxyActivity::class.java)
             .putExtra(ProxyActivity.EXTRA_ID, record.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        var failure: Throwable? = null
         try {
             launch()
             val appeared = device.wait(Until.hasObject(By.textContains("Persistent counter: 0")), 15000)
@@ -65,12 +66,19 @@ class GuestRuntimeTest {
             waitForRuntimeExit(repository, record.id)
             repository.regenerateProfile(record.id)
             assertNotEquals(record.testAndroidId, repository.find(record.id).testAndroidId)
+        } catch (error: Throwable) {
+            failure = error
+            throw error
         } finally {
-            if (device.hasObject(By.text("Hentikan guest"))) device.pressBack()
-            device.waitForIdle()
-            waitForRuntimeExit(repository, record.id)
-            repository.delete(record.id)
-            source.delete()
+            try {
+                device.findObject(By.text("Hentikan guest"))?.click()
+                device.waitForIdle()
+                waitForRuntimeExit(repository, record.id)
+                repository.delete(record.id)
+            } catch (cleanup: Throwable) {
+                val original = failure
+                if (original == null) throw cleanup else original.addSuppressed(cleanup)
+            } finally { source.delete() }
         }
     }
 
