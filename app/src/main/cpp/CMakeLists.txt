@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(aether_core LANGUAGES CXX)
+add_library(aether_core SHARED native_diagnostics.cpp)
+target_compile_features(aether_core PRIVATE cxx_std_20)
+target_compile_options(aether_core PRIVATE -Wall -Wextra -Werror)
+target_link_options(aether_core PRIVATE "-Wl,-z,max-page-size=16384")
