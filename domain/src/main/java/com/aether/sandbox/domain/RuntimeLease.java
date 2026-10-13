@@ -5,25 +5,35 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.util.HashSet;
+import java.util.Set;
 
 /** Exclusive per-instance lease shared by runtime and destructive mutations. */
 public final class RuntimeLease implements AutoCloseable {
+    private static final Set<String> ACTIVE = new HashSet<>();
     private final RandomAccessFile file;
     private final FileLock lock;
+    private final String key;
     private boolean closed;
 
-    private RuntimeLease(RandomAccessFile file, FileLock lock) {
+    private RuntimeLease(RandomAccessFile file, FileLock lock, String key) {
         this.file = file;
         this.lock = lock;
+        this.key = key;
     }
 
-    public static RuntimeLease acquire(File lockRoot, String id) throws IOException {
+    public static synchronized RuntimeLease acquire(File lockRoot, String id) throws IOException {
         SandboxPaths.requireInstanceId(id);
         if (!lockRoot.isDirectory() && !lockRoot.mkdirs() && !lockRoot.isDirectory()) {
             throw new IOException("Gagal membuat direktori kontrol runtime");
         }
         // Never unlink lock files: replacing the inode would permit two simultaneous leases.
-        RandomAccessFile file = new RandomAccessFile(SandboxPaths.resolve(lockRoot, id + ".lock"), "rw");
+        File target = SandboxPaths.resolve(lockRoot, id + ".lock");
+        String key = target.getPath();
+        // POSIX locks can be released when ANY descriptor for the inode is closed by this
+        // process. Reject local duplicates before opening another descriptor.
+        if (ACTIVE.contains(key)) throw busy();
+        RandomAccessFile file = new RandomAccessFile(target, "rw");
         try {
             FileLock lock;
             try {
@@ -32,18 +42,27 @@ public final class RuntimeLease implements AutoCloseable {
                 lock = null;
             }
             if (lock == null) {
-                throw new IOException("Instance sedang digunakan. Hentikan guest sebelum mengubah atau menghapus data.");
+                throw busy();
             }
-            return new RuntimeLease(file, lock);
+            ACTIVE.add(key);
+            return new RuntimeLease(file, lock, key);
         } catch (IOException | RuntimeException error) {
             try { file.close(); } catch (IOException cleanup) { error.addSuppressed(cleanup); }
             throw error;
         }
     }
 
+    private static IOException busy() {
+        return new IOException("Instance sedang digunakan. Hentikan guest sebelum mengubah atau menghapus data.");
+    }
+
     @Override public synchronized void close() throws IOException {
         if (closed) return;
         closed = true;
-        try { lock.release(); } finally { file.close(); }
+        synchronized (RuntimeLease.class) {
+            try { lock.release(); } finally {
+                try { file.close(); } finally { ACTIVE.remove(key); }
+            }
+        }
     }
 }

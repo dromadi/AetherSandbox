@@ -25,4 +25,6 @@ Tidak ada hasil perangkat yang dinyatakan lulus sebelum workflow selesai. Hasil 
 
 ## Alpha.2 — validasi perubahan
 
-Perubahan lifecycle/lease menambahkan 3 unit test domain, 3 unit test lifecycle, serta assertion instrumentasi untuk penolakan hapus/perubahan profil ketika proses guest berjalan dan pelepasan lease melalui tombol stop. Hasil alpha.1 di atas adalah historis dan tidak otomatis berlaku untuk alpha.2. Build Android lokal alpha.2 belum dapat dijalankan karena unduhan Gradle diblokir jaringan; hasil build/lint dan perangkat alpha.2 harus dilihat pada CI PR terkait.
+Perubahan lifecycle/lease menambahkan 4 unit test domain (termasuk subprocess JVM), 3 unit test lifecycle, serta assertion instrumentasi untuk penolakan hapus/perubahan profil ketika proses guest berjalan dan pelepasan lease melalui tombol stop. Hasil alpha.1 di atas adalah historis dan tidak otomatis berlaku untuk alpha.2. Build Android lokal alpha.2 belum dapat dijalankan karena unduhan Gradle diblokir jaringan; hasil build/lint dan perangkat alpha.2 harus dilihat pada CI PR terkait.
+
+Harness Java lokal berhasil memeriksa eksklusi antarproses setelah percobaan duplikat lokal, instance berbeda, release/reacquire, urutan lifecycle, serta cleanup ketika callback gagal. Harness memakai stub Android untuk signature Context/View, sehingga tidak menggantikan build atau pengujian perangkat Android.
