@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: devices-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   instrumented:
     runs-on: ubuntu-latest
@@ -19,6 +22,10 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '13114758'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
       - name: Enable emulator acceleration
