@@ -35,7 +35,9 @@ val prepareFixture by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("generated/fixtureAssets"))
     rename { "fixture.apk" }
 }
-tasks.matching { it.name == "mergeDebugAndroidTestAssets" }.configureEach { dependsOn(prepareFixture) }
+tasks.matching { it.name in setOf(
+    "mergeDebugAndroidTestAssets", "lintAnalyzeDebugAndroidTest", "generateDebugAndroidTestLintModel",
+) }.configureEach { dependsOn(prepareFixture) }
 kotlin { jvmToolchain(17) }
 dependencies {
     implementation(project(":domain"))
