@@ -62,7 +62,7 @@ class GuestRuntimeTest {
             waitForRuntimeExit(repository, record.id)
             launch()
             assertTrue("Counter did not persist on relaunch", device.wait(Until.hasObject(By.textContains("Persistent counter: 1")), 10000))
-            device.findObject(By.text("Hentikan guest")).click()
+            device.findObject(By.text(java.util.regex.Pattern.compile("Hentikan guest", java.util.regex.Pattern.CASE_INSENSITIVE))).click()
             waitForRuntimeExit(repository, record.id)
             repository.regenerateProfile(record.id)
             assertNotEquals(record.testAndroidId, repository.find(record.id).testAndroidId)
@@ -71,7 +71,7 @@ class GuestRuntimeTest {
             throw error
         } finally {
             try {
-                device.findObject(By.text("Hentikan guest"))?.click()
+                device.findObject(By.text(java.util.regex.Pattern.compile("Hentikan guest", java.util.regex.Pattern.CASE_INSENSITIVE)))?.click()
                 device.waitForIdle()
                 waitForRuntimeExit(repository, record.id)
                 repository.delete(record.id)
