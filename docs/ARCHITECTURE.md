@@ -31,6 +31,12 @@ code_cache/<uuid>/
 
 Canonical path validation menolak traversal, absolute paths, dan symlink yang keluar dari root. Nilai profil dan metadata disimpan hanya di perangkat. Host tidak meminta akses internet, daftar semua aplikasi, kamera, atau akses storage menyeluruh. Dokumen APK/video dipilih dengan Storage Access Framework.
 
+## Kontrol lifecycle alpha.2
+
+`GuestLifecycle` meneruskan start/resume/pause/stop/destroy ke kontrak opt-in `GuestEntry`. Callback default menjaga kompatibilitas fixture sebelumnya. State dispatcher mencegah callback ganda dan menyinkronkan guest yang selesai dimuat setelah host resumed. Cleanup stop/destroy tetap dicoba jika callback pause gagal.
+
+`RuntimeLease` memakai exclusive FileChannel lock di `files/runtime-locks/<uuid>.lock`. Runtime mengambil lease sebelum membaca indeks dan melepasnya setelah teardown guest. Repository mengambil lease yang sama sebelum menghapus instance atau mengganti profil. Lock file tidak dihapus agar inode lock tetap stabil; OS melepas lease jika proses mati. Saat loading dibatalkan, lease baru dilepas setelah job IO selesai. Ini koordinasi kooperatif, bukan isolasi keamanan.
+
 ## Media dan lifecycle
 
 Pemilih video menyimpan izin URI persisten. MediaExtractor membaca track, MediaCodec mendecode ke Surface milik TextureView, dan timestamp media mengendalikan pacing. File diputar ulang saat akhir track. Pipeline dihentikan saat preview tidak resumed atau Surface dihancurkan. Decoder, extractor, dan Surface dilepas di blok finally worker.
@@ -41,7 +47,7 @@ Overlay menggunakan foreground service mediaPlayback yang dimulai dari tindakan 
 
 - Proses berbeda dengan UID sama tidak membatasi akses file, permission, Binder, dan memori native secara menyeluruh. Guest hanya fixture tepercaya.
 - SharedPreferences Android bersifat process-local/cache. Alpha tidak mendukung dua proses menulis preference instance yang sama secara bersamaan.
-- Penghapusan instance saat fixture masih aktif dalam mode multi-window perlu penguncian runtime dan protokol stop sebelum mendukung aplikasi umum.
+- Lease per instance menolak peluncuran ganda, penghapusan, dan perubahan profil selama runtime aktif, termasuk multi-window. Hentikan guest melalui layar runtime sebelum mutasi. IPC stop dari host dan registry status runtime masih belum tersedia.
 - Instalasi split APK/APKS/XAPK dan ekstraksi library native guest belum didukung.
 - Codec dan format video bergantung perangkat. Belum ada klaim semua MP4/MKV, 60 FPS, latensi, atau hardware decoder tertentu.
 - Ukuran APK universal meningkat karena menyertakan runtime Compose serta tiga ABI. Pengukuran, bukan asumsi ukuran, menentukan optimasi berikutnya.

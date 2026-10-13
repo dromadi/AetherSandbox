@@ -9,6 +9,7 @@ import android.util.AtomicFile
 import com.aether.sandbox.domain.ArchiveValidator
 import com.aether.sandbox.domain.BoundedCopy
 import com.aether.sandbox.domain.SandboxPaths
+import com.aether.sandbox.domain.RuntimeLease
 import com.aether.sandbox.domain.TestProfile
 import org.json.JSONArray
 import org.json.JSONObject
@@ -90,12 +91,15 @@ class SandboxRepository(private val context: Context) {
         }
     }
 
-    fun regenerateProfile(id: String) {
+    fun acquireRuntime(id: String): RuntimeLease =
+        RuntimeLease.acquire(File(context.filesDir, "runtime-locks"), id)
+
+    fun regenerateProfile(id: String) = acquireRuntime(id).use {
         find(id)
         save(list().map { if (it.id == id) it.copy(testAndroidId = TestProfile.newAndroidId()) else it })
     }
 
-    fun delete(id: String) {
+    fun delete(id: String) = acquireRuntime(id).use {
         find(id)
         // Publish removal first so new launches cannot see a half-deleted instance.
         save(list().filterNot { it.id == id })

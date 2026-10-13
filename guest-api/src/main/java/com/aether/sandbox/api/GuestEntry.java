@@ -7,5 +7,9 @@ import java.util.Map;
 /** Explicit opt-in contract for trusted QA fixtures. Not an Android Activity virtualization API. */
 public interface GuestEntry {
     View createView(Context context, Map<String, String> testProfile);
+    default void onStart() {}
+    default void onResume() {}
+    default void onPause() {}
+    default void onStop() {}
     default void onDestroy() {}
 }

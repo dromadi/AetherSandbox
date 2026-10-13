@@ -22,3 +22,7 @@ APK debug lokal berukuran 10.46 MB desimal (9.98 MiB). Release unsigned berukura
 Pengujian Android mencakup integritas/read-only APK, pemuatan resource/entrypoint, file/database/pref namespace, persistensi profil dan penghitung, beberapa instance, penghapusan data, rollback impor rusak, serta tampilan fixture dalam proses terpisah dengan UID host yang sama.
 
 Tidak ada hasil perangkat yang dinyatakan lulus sebelum workflow selesai. Hasil CI dan artefak tersedia di PR #1.
+
+## Alpha.2 — validasi perubahan
+
+Perubahan lifecycle/lease menambahkan 3 unit test domain, 3 unit test lifecycle, serta assertion instrumentasi untuk penolakan hapus/perubahan profil ketika proses guest berjalan dan pelepasan lease melalui tombol stop. Hasil alpha.1 di atas adalah historis dan tidak otomatis berlaku untuk alpha.2. Build Android lokal alpha.2 belum dapat dijalankan karena unduhan Gradle diblokir jaringan; hasil build/lint dan perangkat alpha.2 harus dilihat pada CI PR terkait.

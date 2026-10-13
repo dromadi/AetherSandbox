@@ -61,7 +61,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
             contentPadding = PaddingValues(vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("AetherSandbox", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("VirtuBox Core • 0.1.0-alpha.1", color = MaterialTheme.colorScheme.secondary)
+                Text("VirtuBox Core • 0.1.0-alpha.2", color = MaterialTheme.colorScheme.secondary)
             }
             item {
                 Card {
@@ -130,7 +130,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
     }
     deleting?.let { record ->
         AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Hapus instance?") },
-            text = { Text("APK dan data instance ${record.id.take(8)} akan dihapus.") },
+            text = { Text("APK dan data instance ${record.id.take(8)} akan dihapus. Jika guest masih berjalan, hentikan melalui tombol Hentikan guest terlebih dahulu.") },
             confirmButton = { TextButton(onClick = { model.delete(record.id); deleting = null }) { Text("Hapus") } },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Batal") } })
     }

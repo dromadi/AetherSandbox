@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.1**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.2**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -15,6 +15,14 @@ Versi awal: **0.1.0-alpha.1**. Android 8–16 (minSdk 26, targetSdk 36).
 - Panel video melayang dengan kontrol pause, tutup, geser, dan transparansi. Izin overlay diminta saat pengguna mengaktifkan panel.
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
+
+## Pembaruan alpha.2
+
+- Callback lifecycle fixture: start, resume, pause, stop, destroy; termasuk pemuatan yang selesai setelah Activity sudah resumed.
+- Lease file lintas proses mencegah dua runtime memakai instance yang sama, serta menolak hapus/perubahan profil saat runtime masih aktif.
+- Tombol **Hentikan guest** menutup runtime dan melepas lease setelah cleanup; kematian proses juga melepas lock melalui OS.
+- Lease tetap dipegang sampai pemuatan IO selesai jika Activity ditutup saat loading.
+- Unit test lease/lifecycle dan pengujian perangkat untuk mutasi yang ditolak saat guest berjalan.
 
 ## Batas alpha ini
 
@@ -54,7 +62,7 @@ Build host dan fixture pada komputer/CI yang sama agar keduanya menggunakan debu
 5. Impor fixture yang sama lagi. Instance kedua harus memiliki direktori, ID, dan penghitung yang berbeda.
 6. Pilih video lokal. Uji pause/play, ulang, rotasi, cermin, keluar/masuk layar, dan loop.
 7. Tekan **Panel**, berikan izin overlay, lalu tekan lagi. Uji geser/transparansi dan tutup panel melalui panel/notifikasi.
-8. Hapus instance. APK, direktori, database, preference namespace, dan cache kode instance tersebut dihapus.
+8. Tekan **Hentikan guest** atau kembali dari layar guest. Kemudian hapus instance. APK, direktori, database, preference namespace, dan cache kode instance tersebut dihapus.
 
 Untuk instrumented tests:
 

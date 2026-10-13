@@ -20,6 +20,19 @@ import androidx.test.uiautomator.Until
 
 @RunWith(AndroidJUnit4::class)
 class GuestRuntimeTest {
+    private fun waitForRuntimeExit(repository: SandboxRepository, id: String) {
+        val deadline = android.os.SystemClock.uptimeMillis() + 5000
+        while (true) {
+            try {
+                repository.acquireRuntime(id).use { }
+                return
+            } catch (busy: java.io.IOException) {
+                if (android.os.SystemClock.uptimeMillis() >= deadline) throw busy
+                android.os.SystemClock.sleep(50)
+            }
+        }
+    }
+
     @Test fun proxyActivityRunsGuestInAnotherProcessAndPersistsCounter() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val host = instrumentation.targetContext
@@ -38,15 +51,24 @@ class GuestRuntimeTest {
                 .first { it.processName == "${host.packageName}:virtual_process" }
             assertNotEquals(Process.myPid(), process.pid)
             assertEquals(Process.myUid(), process.uid)
+            assertThrows(java.io.IOException::class.java) { repository.delete(record.id) }
+            assertThrows(java.io.IOException::class.java) { repository.regenerateProfile(record.id) }
+            assertEquals(record.testAndroidId, repository.find(record.id).testAndroidId)
             device.findObject(By.text(java.util.regex.Pattern.compile("Increment isolated counter", java.util.regex.Pattern.CASE_INSENSITIVE))).click()
             assertTrue(device.wait(Until.hasObject(By.textContains("Persistent counter: 1")), 5000))
             device.pressBack()
             device.waitForIdle()
+            waitForRuntimeExit(repository, record.id)
             launch()
             assertTrue("Counter did not persist on relaunch", device.wait(Until.hasObject(By.textContains("Persistent counter: 1")), 10000))
+            device.findObject(By.text("Hentikan guest")).click()
+            waitForRuntimeExit(repository, record.id)
+            repository.regenerateProfile(record.id)
+            assertNotEquals(record.testAndroidId, repository.find(record.id).testAndroidId)
         } finally {
-            device.pressBack()
+            if (device.hasObject(By.text("Hentikan guest"))) device.pressBack()
             device.waitForIdle()
+            waitForRuntimeExit(repository, record.id)
             repository.delete(record.id)
             source.delete()
         }
