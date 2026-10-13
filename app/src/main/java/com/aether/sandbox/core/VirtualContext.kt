@@ -1,0 +1,84 @@
+package com.aether.sandbox.core
+
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.SharedPreferences
+import android.content.res.AssetManager
+import android.content.res.Resources
+import android.database.sqlite.SQLiteDatabase
+import com.aether.sandbox.domain.SandboxPaths
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+
+/** Cooperative guest storage/resource context. Same UID as host; this is NOT a security boundary. */
+class VirtualContext(
+    host: Context,
+    private val guestRoot: File,
+    private val guestPackage: String,
+    private val instanceId: String,
+    private val loader: ClassLoader,
+    private val guestResources: Resources,
+) : ContextWrapper(host) {
+    private fun directory(name: String) = SandboxPaths.resolve(guestRoot, name).apply {
+        check(isDirectory || mkdirs()) { "Gagal membuat direktori guest" }
+    }
+    private fun named(root: File, name: String): File {
+        require(name.isNotEmpty() && '/' !in name && '\\' !in name && name != "." && name != "..")
+        return SandboxPaths.resolve(root, name)
+    }
+
+    override fun getPackageName() = guestPackage
+    override fun getApplicationContext(): Context = this
+    override fun getClassLoader() = loader
+    override fun getResources() = guestResources
+    override fun getAssets(): AssetManager = guestResources.assets
+    private val guestTheme by lazy { guestResources.newTheme().apply { applyStyle(android.R.style.Theme_Material_Light_NoActionBar, true) } }
+    override fun getTheme(): Resources.Theme = guestTheme
+    override fun getSystemService(name: String): Any? = if (name == LAYOUT_INFLATER_SERVICE)
+        android.view.LayoutInflater.from(baseContext).cloneInContext(this) else super.getSystemService(name)
+    override fun getFilesDir() = directory("files")
+    override fun getCacheDir() = directory("cache")
+    override fun getCodeCacheDir() = directory("code_cache")
+    override fun getDataDir() = guestRoot
+    override fun getNoBackupFilesDir() = directory("no_backup")
+    override fun getExternalFilesDir(type: String?): File = if (type == null) directory("external")
+        else named(directory("external"), type).apply { mkdirs() }
+    override fun getExternalFilesDirs(type: String?) = arrayOf(getExternalFilesDir(type))
+    override fun getExternalCacheDir() = directory("external_cache")
+    override fun getExternalCacheDirs() = arrayOf(externalCacheDir)
+    override fun getDir(name: String, mode: Int): File {
+        require(mode == MODE_PRIVATE)
+        return named(directory("dirs"), name).apply { mkdirs() }
+    }
+    override fun getFileStreamPath(name: String) = named(filesDir, name)
+    override fun openFileInput(name: String) = FileInputStream(getFileStreamPath(name))
+    override fun openFileOutput(name: String, mode: Int): FileOutputStream {
+        require(mode == MODE_PRIVATE || mode == MODE_APPEND)
+        return FileOutputStream(getFileStreamPath(name), mode == MODE_APPEND)
+    }
+    override fun deleteFile(name: String) = getFileStreamPath(name).delete()
+    override fun fileList() = filesDir.list().orEmpty()
+    override fun getDatabasePath(name: String) = named(directory("databases"), name)
+    override fun openOrCreateDatabase(name: String, mode: Int, factory: SQLiteDatabase.CursorFactory?): SQLiteDatabase {
+        require(mode == MODE_PRIVATE)
+        return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name), factory)
+    }
+    override fun openOrCreateDatabase(name: String, mode: Int, factory: SQLiteDatabase.CursorFactory?,
+        errorHandler: android.database.DatabaseErrorHandler?): SQLiteDatabase {
+        require(mode == MODE_PRIVATE)
+        return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name).path, factory, errorHandler)
+    }
+    override fun databaseList() = directory("databases").list().orEmpty()
+    override fun deleteDatabase(name: String) = SQLiteDatabase.deleteDatabase(getDatabasePath(name))
+    override fun getSharedPreferences(name: String, mode: Int): SharedPreferences {
+        require(mode == MODE_PRIVATE)
+        named(directory("preferences"), name) // validate caller-provided name
+        // Public SDK has no arbitrary-directory SharedPreferences constructor. Namespace in host instead.
+        return baseContext.getSharedPreferences("guest_${instanceId}_$name", MODE_PRIVATE)
+    }
+    override fun deleteSharedPreferences(name: String): Boolean {
+        named(directory("preferences"), name)
+        return baseContext.deleteSharedPreferences("guest_${instanceId}_$name")
+    }
+}

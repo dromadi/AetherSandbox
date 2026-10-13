@@ -1,0 +1,2 @@
+-keep interface com.aether.sandbox.api.GuestEntry { *; }
+-keep class com.aether.sandbox.core.NativeDiagnostics { *; }
