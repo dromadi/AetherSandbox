@@ -23,7 +23,16 @@ class VirtualContext(
     private val guestResources: Resources,
     private val guestApplicationInfo: ApplicationInfo? = null,
 ) : ContextWrapper(host) {
+    var videoCameraActive: Boolean = false
     fun forActivity(host: Context) = VirtualContext(host, guestRoot, guestPackage, instanceId, loader, guestResources, guestApplicationInfo)
+        .also { it.videoCameraActive = videoCameraActive }
+    override fun checkSelfPermission(permission: String): Int =
+        if (videoCameraActive && permission == android.Manifest.permission.CAMERA)
+            android.content.pm.PackageManager.PERMISSION_GRANTED else super.checkSelfPermission(permission)
+    override fun checkPermission(permission: String, pid: Int, uid: Int): Int =
+        if (videoCameraActive && permission == android.Manifest.permission.CAMERA &&
+            pid == android.os.Process.myPid() && uid == android.os.Process.myUid())
+            android.content.pm.PackageManager.PERMISSION_GRANTED else super.checkPermission(permission, pid, uid)
     /** The guest Application once instantiated; it becomes this context's applicationContext. */
     var application: Application? = null
     private fun directory(name: String) = SandboxPaths.resolve(guestRoot, name).apply {

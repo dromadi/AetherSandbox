@@ -17,6 +17,7 @@ class SyntheticMediaPipeline(
     private val context: Context,
     private val uri: Uri,
     private val surface: Surface,
+    private val ownsSurface: Boolean = true,
     private val onStatus: (String) -> Unit,
 ) : AutoCloseable {
     private val running = AtomicBoolean(true)
@@ -31,7 +32,13 @@ class SyntheticMediaPipeline(
         return next
     }
     fun seekToStart() { requestedSeekUs.set(0) }
-    override fun close() { running.set(false); thread.interrupt() }
+    override fun close() {
+        running.set(false)
+        thread.interrupt()
+        if (Thread.currentThread() !== thread) {
+            try { thread.join(2000) } catch (_: InterruptedException) { Thread.currentThread().interrupt() }
+        }
+    }
 
     private fun status(message: String) {
         main.post { if (running.get()) onStatus(message) }
@@ -97,7 +104,11 @@ class SyntheticMediaPipeline(
                         && nowUs() < clockOriginUs + info.presentationTimeUs) {
                         Thread.sleep(minOf(20L, maxOf(1L, (clockOriginUs + info.presentationTimeUs - nowUs()) / 1000)))
                     }
-                    codec.releaseOutputBuffer(outputIndex, running.get() && playing.get())
+                    val render = running.get() && playing.get()
+                    if (render && !ownsSurface) {
+                        // Camera consumers need a monotonic timestamp even when the file loops.
+                        codec.releaseOutputBuffer(outputIndex, System.nanoTime())
+                    } else codec.releaseOutputBuffer(outputIndex, render)
                     if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                         extractor.seekTo(0, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
                         codec.flush()
@@ -114,7 +125,7 @@ class SyntheticMediaPipeline(
             if (started) runCatching { decoder?.stop() }
             runCatching { decoder?.release() }
             runCatching { extractor.release() }
-            surface.release()
+            if (ownsSurface) surface.release()
         }
     }
 

@@ -42,6 +42,7 @@ class RuntimeRouterActivity : ComponentActivity() {
                 } else startActivity(Intent(this@RuntimeRouterActivity, RuntimeSlots.activities[slot])
                     .putExtra(ProxyActivity.EXTRA_ID, id)
                     .putExtra(ProxyActivity.EXTRA_CAMERA_URI, intent.getStringExtra(ProxyActivity.EXTRA_CAMERA_URI))
+                    .putExtra(ProxyActivity.EXTRA_CAMERA2_VIDEO, intent.getBooleanExtra(ProxyActivity.EXTRA_CAMERA2_VIDEO, false))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             } catch (error: Exception) {
                 android.util.Log.w("AetherActivity", "Task routing failed", error)

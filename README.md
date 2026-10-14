@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.8**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.9**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -15,6 +15,16 @@ Versi awal: **0.1.0-alpha.8**. Android 8–16 (minSdk 26, targetSdk 36).
 - Panel video melayang dengan kontrol pause, tutup, geser, dan transparansi. Izin overlay diminta saat pengguna mengaktifkan panel.
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
+
+## Pembaruan alpha.9 — prototipe Camera2 dari video
+
+- Sakelar Camera2 video terpisah, default mati. Pilih video, aktifkan sakelar, lalu mulai ulang guest. Hanya proses guest tersebut yang di-hook; aplikasi terpasang di luar Aether tidak berubah.
+- Intersepsi openCamera API Handler/Executor mengembalikan CameraDevice sintetis tanpa membuka kamera fisik. Hook dipasang sebelum Application guest mulai. Kegagalan hook menolak startup mode video.
+- Preview/record repeating request dengan satu atau dua Surface menerima decoder video real-time yang loop. Surface milik guest tidak dilepas oleh decoder.
+- Aplikasi contoh menggunakan Camera2 standar, TextureView dan input Surface encoder H.264, tanpa GuestEntry/API Aether. Tes memeriksa output encoder melewati satu loop dan navigasi setelah kamera ditutup, sementara izin CAMERA host tetap tidak diminta/diberikan.
+- Dependency hook dipin AliuHook 1.1.4 (OSL-3.0, LSPlant/Xposed bindings), aktif hanya bila mode video dipilih. Lihat docs/CAMERA_VIDEO_STATUS.md.
+
+**Belum didukung:** ImageReader/YUV/JPEG, Camera1, NDK, capture result metadata, capture callback, CameraX lengkap, rotasi/mirror untuk output guest, pacing FPS dari CaptureRequest, audio, penggantian sumber tanpa restart. WhatsApp/Meet/Instagram belum diuji dan tidak diklaim kompatibel. Ini prototipe output Surface, bukan kamera virtual sistem Android.
 
 ## Pembaruan alpha.8 — jaringan dan startup Provider
 
