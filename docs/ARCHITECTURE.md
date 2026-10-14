@@ -15,7 +15,7 @@ Pemilih dokumen → direktori UUID baru → stream berbatas ke descriptor APK ya
 
 Peluncuran fixture → Activity proses terpisah → baca indeks → verifikasi SHA-256/sertifikat/metadata → DexClassLoader dengan API parent-first → resource APK via API PackageManager → VirtualContext → GuestEntry.createView.
 
-Host UI memiliki satu mutex untuk mutasi indeks. Proses fixture hanya membaca indeks dan menulis penyimpanan instance. `Application` guest, manifest Activity/Service/Provider, JNI guest, dan framework global tidak dieksekusi atau diganti.
+Host UI memiliki satu mutex untuk mutasi indeks. Proses fixture hanya membaca indeks dan menulis penyimpanan instance. `Application` guest dan library JNI sederhana dijalankan pada runtime umum alpha.6. Activity/Service/Provider guest dan framework global belum divirtualisasi.
 
 ## Penyimpanan
 
@@ -39,13 +39,23 @@ Canonical path validation menolak traversal, absolute paths, dan symlink yang ke
 
 ## Runtime aplikasi umum alpha.5 (milestone 1)
 
-`GeneralGuestLoader.load` dipakai untuk APK non-fixture. `SandboxRepository.verifyIntegrity` me-rehash APK (tanpa syarat sertifikat fixture) dan mengembalikan `PackageInfo` dengan daftar Activity. Classloader guest adalah `DexClassLoader` dengan parent boot classloader, sehingga kelas aplikasi host tidak bocor ke guest dan library guest menang atas host. Resource dimuat via `getResourcesForApplication`.
+`GeneralGuestLoader.prepare` dan `GeneralGuestLoader.start` dipakai untuk APK non-fixture. `SandboxRepository.verifyIntegrity` me-rehash APK (tanpa syarat sertifikat fixture) dan mengembalikan `PackageInfo` dengan daftar Activity. Classloader guest adalah `DexClassLoader` dengan parent boot classloader, sehingga kelas aplikasi host tidak bocor ke guest dan library guest menang atas host. Resource dimuat via `getResourcesForApplication`.
 
 `Application` guest (`applicationInfo.className`, atau `android.app.Application` bila kosong) diinstansiasi, di-`attachBaseContext` ke `VirtualContext` instance lewat refleksi, lalu `onCreate()` dipanggil. `VirtualContext.getApplicationContext()` mengembalikan Application tersebut dan `getApplicationInfo()` mengembalikan info guest.
 
-`SandboxRepository.guestComponents` membaca Activity/Service/Provider/Receiver guest dari arsip (milestone 2a); `ProxyActivity` menampilkannya. Resolusi launcher masih heuristik urutan manifest karena arsip tidak mengekspos intent filter; resolusi penuh butuh parsing manifest biner (menyusul).
+`SandboxRepository.guestComponents` membaca Activity/Service/Provider/Receiver guest dari arsip (milestone 2a); `ProxyActivity` menampilkannya. Resolusi launcher alpha.6 membaca manifest biner dengan XmlResourceParser, menyeleksi MAIN/LAUNCHER pada satu filter yang sama dan mendukung activity-alias serta status enabled/exported.
 
 Batas tegas milestone 1–2a: tidak ada eksekusi Activity/Service/Provider/Broadcast guest, tidak ada intersepsi ActivityManager/PackageManager/Binder, dan tidak ada emulasi hidden API. Guest berbagi UID host; ini virtualisasi kooperatif, bukan batas keamanan. Hidden API dan proxy komponen direncanakan untuk milestone berikutnya.
+
+## Kendali proses alpha.6
+
+RuntimeRouterActivity memilih salah satu empat ProxyActivity dengan task affinity dan proses berbeda. Runtime memegang lease slot dan instance selama hidupnya. Intent baru tidak mengganti guest yang sedang memakai slot. Batas empat slot eksplisit; pemilihan slot optimistis dapat menolak launch yang bertabrakan, sehingga pengguna perlu mencoba ulang.
+
+Hash, metadata, resource, native ABI extraction dan classloader disiapkan pada IO. Constructor Application, attachBaseContext, dan onCreate dipanggil pada main thread. ApplicationInfo disalin dan dataDir/nativeLibraryDir diarahkan ke instance; ini tidak memvirtualisasi API Context/framework lain yang tidak dioverride.
+
+Stop/Back menghancurkan layar dan watchdog mematikan proses guest beserta semua thread-nya. Lease tidak dilepas manual sebelum kematian proses. Bila main thread tidak merespons broadcast selama satu detik, host membaca PID laporan berbatas dan memverifikasi PID/UID/nama proses melalui ActivityManager sebelum kill same-UID. Tidak ada root atau kemampuan mematikan aplikasi lain.
+
+RuntimeJournal menyimpan event terakhir, PID, waktu, dan kegagalan terakhir lewat AtomicFile. Ini laporan diagnostik kooperatif, bukan bukti keamanan atau log seluruh panggilan API. Reset data membutuhkan lease idle dan menghapus data/namespace preferences/cache kode/library tanpa menghapus APK atau profil. Duplikasi memverifikasi ulang APK dan membuat instance baru tanpa menyalin akun. Shortcut adalah permintaan pin kepada launcher; dukungan/konfirmasi bergantung launcher.
 
 ## Kontrol runtime alpha.3
 
@@ -71,10 +81,10 @@ Overlay menggunakan foreground service mediaPlayback yang dimulai dari tindakan 
 
 ## Risiko teknis yang masih terbuka
 
-- Proses berbeda dengan UID sama tidak membatasi akses file, permission, Binder, dan memori native secara menyeluruh. Guest hanya fixture tepercaya.
+- Proses berbeda dengan UID sama tidak membatasi akses file, permission, Binder, dan memori native secara menyeluruh. Guest umum hanya dijalankan jika dipercaya pengguna.
 - SharedPreferences Android bersifat process-local/cache. Alpha tidak mendukung dua proses menulis preference instance yang sama secara bersamaan.
 - Lease per instance menolak peluncuran ganda, penghapusan, dan perubahan profil selama runtime aktif, termasuk multi-window. Host dapat menghentikan guest dan membaca status berjalan/berhenti (alpha.3). IPC dua arah dan perintah lifecycle selain stop belum tersedia.
-- Instalasi split APK/APKS/XAPK dan ekstraksi library native guest belum didukung.
+- Instalasi split APK/APKS/XAPK belum didukung. Alpha.6 mengekstrak library native sesuai ABI proses; syscall redirect belum tersedia.
 - Codec dan format video bergantung perangkat. Belum ada klaim semua MP4/MKV, 60 FPS, latensi, atau hardware decoder tertentu.
 - Ukuran APK universal meningkat karena menyertakan runtime Compose serta tiga ABI. Pengukuran, bukan asumsi ukuran, menentukan optimasi berikutnya.
 

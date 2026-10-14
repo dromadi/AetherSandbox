@@ -13,7 +13,13 @@
             </intent-filter>
         </activity>
         <activity android:name=".core.ProxyActivity" android:exported="false"
-            android:process=":virtual_process" />
+            android:process=":virtual_process" android:launchMode="singleTask"
+            android:taskAffinity="com.aether.sandbox.slot0"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode" />
+        <activity android:name=".core.ProxyActivity1" android:exported="false" android:process=":virtual_process1" android:launchMode="singleTask" android:taskAffinity="com.aether.sandbox.slot1" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode" />
+        <activity android:name=".core.ProxyActivity2" android:exported="false" android:process=":virtual_process2" android:launchMode="singleTask" android:taskAffinity="com.aether.sandbox.slot2" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode" />
+        <activity android:name=".core.ProxyActivity3" android:exported="false" android:process=":virtual_process3" android:launchMode="singleTask" android:taskAffinity="com.aether.sandbox.slot3" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode" />
+        <activity android:name=".core.RuntimeRouterActivity" android:exported="false" />
         <service android:name=".media.FloatingAssistantService" android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
     </application>

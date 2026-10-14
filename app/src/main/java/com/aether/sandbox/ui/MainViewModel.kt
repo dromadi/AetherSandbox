@@ -22,6 +22,7 @@ data class UiState(
     val busy: Boolean = false,
     val message: String? = null,
     val video: Uri? = null,
+    val report: String? = null,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -59,6 +60,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun stopAll() = operation("Semua guest dihentikan") { repository.runningIds().forEach(repository::stop) }
     /** Stops a running guest first so deletion does not require a trip to the runtime screen. */
     fun delete(id: String) = operation("Instance dihapus") { repository.stop(id); repository.delete(id) }
+    fun duplicate(id: String) = operation("Instance baru dibuat; data akun tidak disalin") { repository.duplicate(id) }
+    fun rename(id: String, name: String) = operation("Nama instance diperbarui") { repository.rename(id, name) }
+    fun resetData(id: String) = operation("Data instance direset; APK dan profil dipertahankan") {
+        repository.stop(id); repository.resetData(id)
+    }
+    fun inspect(id: String) = operation {
+        val report = repository.runtimeReport(id)
+        mutableState.update { it.copy(report = report) }
+    }
+    fun dismissReport() { mutableState.update { it.copy(report = null) } }
+    fun exportReport(uri: Uri) {
+        val report = state.value.report ?: return
+        operation("Laporan disimpan") {
+            val resolver = getApplication<Application>().contentResolver
+            requireNotNull(resolver.openOutputStream(uri, "wt")).use { it.write(report.toByteArray()) }
+        }
+    }
     fun regenerate(id: String) = operation("Profil uji diperbarui") { repository.regenerateProfile(id) }
     fun dismissMessage() { mutableState.update { it.copy(message = null) } }
     fun message(text: String) { mutableState.update { it.copy(message = text) } }

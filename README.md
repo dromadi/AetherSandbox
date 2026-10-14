@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.5**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.6**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -15,6 +15,18 @@ Versi awal: **0.1.0-alpha.5**. Android 8–16 (minSdk 26, targetSdk 36).
 - Panel video melayang dengan kontrol pause, tutup, geser, dan transparansi. Izin overlay diminta saat pengguna mengaktifkan panel.
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
+
+## Pembaruan alpha.6 — kendali proses dan pengelolaan instance
+
+- Empat slot runtime memakai proses berbeda. Slot dan instance memakai lease OS; proses yang ditempati tidak diganti ketika dua launch bertabrakan.
+- Stop/Back menutup proses guest, bukan hanya layar, dan lease tetap dipegang sampai proses mati. Host memverifikasi PID/UID/nama proses sebelum fallback stop bila main thread guest tidak merespons.
+- Constructor, attachBaseContext dan Application.onCreate guest umum dijalankan di main thread; hash/resource/DEX/library disiapkan di IO.
+- Launcher dibaca dari intent-filter MAIN/LAUNCHER pada manifest biner, termasuk activity-alias dan disabled component. Tidak lagi menebak dari Activity pertama.
+- Library native APK diekstrak dengan batas 128 MiB untuk ABI yang cocok dengan bitness proses. Ini belum native syscall virtualization atau bukti kompatibilitas semua JNI.
+- Nama instance, duplikasi APK dengan data kosong, reset data sambil mempertahankan APK/profil, shortcut launcher (jika didukung), dan laporan runtime yang dapat diekspor.
+- Laporan menyimpan event terakhir/startup/crash dan kegagalan terakhir; bukan tracing semua API guest.
+
+**Batas tetap:** layar Activity aplikasi umum belum dijalankan. Proses terpisah tetap memakai UID host, sehingga belum menjadi isolasi keamanan. Empat proses bukan empat ROM Android. Lihat [roadmap kompetitor](docs/COMPETITOR_ROADMAP.md) untuk seluruh backlog dan kriteria penerimaan.
 
 ## Pembaruan alpha.2
 
