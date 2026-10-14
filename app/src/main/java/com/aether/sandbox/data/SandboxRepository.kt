@@ -33,6 +33,17 @@ data class SandboxRecord(
     val trustedFixture: Boolean,
 )
 
+/** The guest's declared Android components, as read from its APK manifest. */
+data class GuestComponents(
+    val activities: List<String>,
+    val services: List<String>,
+    val providers: List<String>,
+    val receivers: List<String>,
+    val launcher: String?,
+) {
+    val total: Int get() = activities.size + services.size + providers.size + receivers.size
+}
+
 /** All mutations belong to the host ViewModel IO mutex. Child process only reads the index. */
 class SandboxRepository(private val context: Context) {
     val root = File(context.filesDir, "sandboxes").apply { mkdirs() }
@@ -164,6 +175,22 @@ class SandboxRepository(private val context: Context) {
         val info = archiveInfo(file, PackageManager.GET_ACTIVITIES)
         info.applicationInfo?.apply { sourceDir = file.path; publicSourceDir = file.path }
         return info
+    }
+
+    /**
+     * Collects the guest's declared components from the stored APK. This is the registry the
+     * runtime will need before it can start the guest's Activities/Services; alpha.5 only reports
+     * it. Launcher resolution is a heuristic on manifest order — the archive does not expose intent
+     * filters — so a guest whose launcher is not its first activity needs manifest parsing (future).
+     */
+    fun guestComponents(record: SandboxRecord): GuestComponents {
+        val info = archiveInfo(apk(record),
+            PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES
+                or PackageManager.GET_PROVIDERS or PackageManager.GET_RECEIVERS)
+        fun names(items: Array<out android.content.pm.ComponentInfo>?) = items.orEmpty().map { it.name }
+        val activities = names(info.activities)
+        return GuestComponents(activities, names(info.services), names(info.providers),
+            names(info.receivers), activities.firstOrNull())
     }
 
     /** Package name of the activity declared as the app's launcher, if the archive exposes one. */

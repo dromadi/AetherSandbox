@@ -43,7 +43,9 @@ Canonical path validation menolak traversal, absolute paths, dan symlink yang ke
 
 `Application` guest (`applicationInfo.className`, atau `android.app.Application` bila kosong) diinstansiasi, di-`attachBaseContext` ke `VirtualContext` instance lewat refleksi, lalu `onCreate()` dipanggil. `VirtualContext.getApplicationContext()` mengembalikan Application tersebut dan `getApplicationInfo()` mengembalikan info guest.
 
-Batas tegas milestone 1: tidak ada eksekusi Activity/Service/Provider/Broadcast guest, tidak ada intersepsi ActivityManager/PackageManager/Binder, dan tidak ada emulasi hidden API. Guest berbagi UID host; ini virtualisasi kooperatif, bukan batas keamanan. Hidden API dan proxy komponen direncanakan untuk milestone berikutnya.
+`SandboxRepository.guestComponents` membaca Activity/Service/Provider/Receiver guest dari arsip (milestone 2a); `ProxyActivity` menampilkannya. Resolusi launcher masih heuristik urutan manifest karena arsip tidak mengekspos intent filter; resolusi penuh butuh parsing manifest biner (menyusul).
+
+Batas tegas milestone 1–2a: tidak ada eksekusi Activity/Service/Provider/Broadcast guest, tidak ada intersepsi ActivityManager/PackageManager/Binder, dan tidak ada emulasi hidden API. Guest berbagi UID host; ini virtualisasi kooperatif, bukan batas keamanan. Hidden API dan proxy komponen direncanakan untuk milestone berikutnya.
 
 ## Kontrol runtime alpha.3
 

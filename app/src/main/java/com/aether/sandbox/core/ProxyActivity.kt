@@ -81,15 +81,18 @@ class ProxyActivity : ComponentActivity() {
     private suspend fun loadGeneralApp(repository: SandboxRepository, record: com.aether.sandbox.data.SandboxRecord) {
         val loaded = withContext(Dispatchers.IO) { GeneralGuestLoader.load(this@ProxyActivity, record, repository) }
         generalApp = loaded.application
+        val c = loaded.components
         val report = buildString {
             append("Kode dan resource guest dimuat di instance terisolasi.\n\n")
             append("Paket: ${record.packageName}\n")
             append("Application: ${loaded.application.javaClass.name}\n")
             append("Classloader: ${loaded.context.classLoader.javaClass.simpleName}\n")
-            append("Data: ${loaded.context.filesDir.parent}\n")
-            append("Activity terdaftar: ${loaded.activityCount}\n")
-            append("Launcher: ${loaded.launcherActivity ?: "tidak ada"}\n\n")
-            append("Milestone 1: Application.onCreate() guest sudah berjalan. Menjalankan Activity/Service/Provider guest belum didukung (perlu intersepsi ActivityManager).")
+            append("Data: ${loaded.context.filesDir.parent}\n\n")
+            append("Komponen terdaftar (${c.total}):\n")
+            append("• Activity: ${c.activities.size}   • Service: ${c.services.size}\n")
+            append("• Provider: ${c.providers.size}   • Receiver: ${c.receivers.size}\n")
+            append("Launcher: ${c.launcher ?: "tidak ada"}\n\n")
+            append("Milestone 1–2a: Application.onCreate() guest berjalan dan komponen sudah diinventarisasi. Menjalankan Activity/Service/Provider guest belum didukung (perlu intersepsi ActivityManager/Binder).")
         }
         setContentView(runtimeFrame("Aether runtime • aplikasi umum") {
             addView(TextView(this@ProxyActivity).apply { text = report }, LinearLayout.LayoutParams(-1, 0, 1f))

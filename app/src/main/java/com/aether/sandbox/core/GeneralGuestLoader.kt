@@ -19,13 +19,13 @@ import java.io.File
 data class GeneralGuest(
     val context: VirtualContext,
     val application: Application,
-    val launcherActivity: String?,
-    val activityCount: Int,
+    val components: com.aether.sandbox.data.GuestComponents,
 )
 
 object GeneralGuestLoader {
     fun load(host: Context, record: SandboxRecord, repository: SandboxRepository): GeneralGuest {
         val info = repository.verifyIntegrity(record)
+        val components = repository.guestComponents(record)
         val apk = repository.apk(record)
         val appInfo = requireNotNull(info.applicationInfo) { "APK tidak memiliki ApplicationInfo" }
         val resources = host.packageManager.getResourcesForApplication(appInfo)
@@ -44,7 +44,7 @@ object GeneralGuestLoader {
         context.application = application
         application.onCreate()
 
-        return GeneralGuest(context, application, repository.launcherActivity(info), info.activities?.size ?: 0)
+        return GeneralGuest(context, application, components)
     }
 
     /** Calls the protected Application.attachBaseContext(Context) through reflection. */

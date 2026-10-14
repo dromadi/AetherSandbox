@@ -27,8 +27,13 @@ class GeneralGuestTest {
 
             val guest = GeneralGuestLoader.load(host, first, repository)
             assertEquals("com.aether.sample.SampleApplication", guest.application.javaClass.name)
-            assertEquals("com.aether.sample.SampleActivity", guest.launcherActivity)
-            assertTrue(guest.activityCount >= 1)
+            // Component registry: two activities, one service, one receiver; launcher is the first.
+            val components = guest.components
+            assertEquals("com.aether.sample.SampleActivity", components.launcher)
+            assertTrue(components.activities.containsAll(
+                listOf("com.aether.sample.SampleActivity", "com.aether.sample.SampleSecondActivity")))
+            assertTrue(components.services.contains("com.aether.sample.SampleService"))
+            assertTrue(components.receivers.contains("com.aether.sample.SampleReceiver"))
             // Resources resolve against the guest APK, not the host.
             assertEquals("Aether Sample App", guest.context.getString(
                 guest.context.resources.getIdentifier("sample_label", "string", "com.aether.sample")))
