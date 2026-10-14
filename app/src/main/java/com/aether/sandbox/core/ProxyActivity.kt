@@ -105,6 +105,7 @@ open class ProxyActivity : ComponentActivity() {
         if (intent.getBooleanExtra(EXTRA_CAMERA2_VIDEO, false)) {
             val video = requireNotNull(intent.getStringExtra(EXTRA_CAMERA_URI)) { "Pilih video untuk Camera2" }
             cameraBridge = com.aether.sandbox.media.Camera2VideoBridge.install(applicationContext, video.toUri())
+            prepared.context.videoCameraActive = true
             journal?.record("CAMERA2_VIDEO_READY", "Synthetic Surface camera; physical camera is not opened")
         }
         val loaded = GeneralGuestLoader.start(prepared)

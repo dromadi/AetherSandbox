@@ -53,6 +53,10 @@ public final class SampleCameraActivity extends Activity implements TextureView.
         preview = new Surface(texture);
         cameraHandler.post(() -> {
             try {
+                if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    throw new SecurityException("Guest has no camera permission");
+                if (checkPermission(android.Manifest.permission.CAMERA, android.os.Process.myPid(), android.os.Process.myUid()) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    throw new SecurityException("Guest camera context permission failed");
                 MediaFormat format = MediaFormat.createVideoFormat("video/avc", 160, 120);
                 format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
                 format.setInteger(MediaFormat.KEY_BIT_RATE, 200000);

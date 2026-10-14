@@ -4,7 +4,7 @@ Target produk: video pilihan pengguna dapat menjadi gambar kamera aplikasi video
 
 ## Milestone alpha.9
 
-Prototipe non-root, process-local Camera2 openCamera + synthetic CameraDevice/CaptureSession + real-time decoder ke Surface preview/encoder. User mengaktifkan sakelar eksplisit; tidak ada fallback kamera fisik bila setup gagal. Metadata karakteristik masih dari kamera perangkat, sedangkan pengaturan request selain target Surface belum diterapkan. Host tidak meminta izin kamera fisik.
+Prototipe non-root, process-local Camera2 openCamera + synthetic CameraDevice/CaptureSession + real-time decoder ke Surface preview/encoder. User mengaktifkan sakelar eksplisit; tidak ada fallback kamera fisik bila setup gagal. Metadata karakteristik masih dari kamera perangkat, sedangkan pengaturan request selain target Surface belum diterapkan. Host tidak meminta izin kamera fisik. Context guest melaporkan izin CAMERA virtual hanya setelah mode video diaktifkan dan hook berhasil. Pemeriksaan izin kamera fisik pada UID host tetap ditolak; ini akses ke video pilihan pengguna, bukan grant OS ke hardware.
 
 Acceptance test memakai APK normal tanpa API Aether, memanggil Camera2 standar, mengirim preview ke TextureView dan video ke encoder AVC. Lebih dari 30 frame harus ter-encode dari clip 30-frame, menunjukkan loop; Back dan stop guest tetap bekerja. Ini belum membuktikan transmisi ke peserta panggilan atau keutuhan gambar di aplikasi produksi.
 
