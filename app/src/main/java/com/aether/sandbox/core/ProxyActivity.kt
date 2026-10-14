@@ -58,7 +58,7 @@ open class ProxyActivity : ComponentActivity() {
                     lease = repository.acquireRuntime(id, SandboxRepository.LAUNCH_LEASE_WAIT_MILLIS)
                     repository.find(id)
                 }
-                journal = RuntimeJournal(repository.directory(record.id)).also { it.record("STARTING") }
+                journal = RuntimeJournal(repository.directory(record.id), taskId, slot).also { it.record("STARTING") }
                 val previous = Thread.getDefaultUncaughtExceptionHandler()
                 Thread.setDefaultUncaughtExceptionHandler { thread, error ->
                     journal?.record("CRASHED", "${error.javaClass.name}: ${error.message}")

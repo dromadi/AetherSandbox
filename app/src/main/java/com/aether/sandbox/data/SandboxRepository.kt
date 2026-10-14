@@ -194,6 +194,17 @@ class SandboxRepository(private val context: Context) {
         }
     }
 
+    fun runtimeLocation(id: String): Pair<Int, Int> {
+        find(id)
+        val report = File(directory(id), "runtime-report.json")
+        val json = JSONObject(report.inputStream().use { input ->
+            input.readBytesBounded(32_769).also { check(it.size <= 32_768) }.toString(Charsets.UTF_8)
+        })
+        val slot = json.getInt("slot")
+        require(slot in 0..3)
+        return json.getInt("taskId") to slot
+    }
+
     fun runtimeReport(id: String): String {
         val record = find(id)
         val components = guestComponents(record)

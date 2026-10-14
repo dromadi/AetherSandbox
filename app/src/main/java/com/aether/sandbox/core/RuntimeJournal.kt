@@ -6,13 +6,13 @@ import org.json.JSONObject
 import java.io.File
 
 /** Last lifecycle event, not a complete trace. Reports never contain guest file contents. */
-class RuntimeJournal(directory: File) {
+class RuntimeJournal(directory: File, private val taskId: Int? = null, private val slot: Int? = null) {
     private val file = AtomicFile(File(directory, "runtime-report.json"))
     private var lastFailure: String? = null
     @Synchronized fun record(event: String, message: String = "") {
         if (event in setOf("FAILED", "CRASHED")) lastFailure = message.take(2000)
         runCatching {
-            val data = JSONObject().put("event", event).put("time", System.currentTimeMillis())
+            val data = JSONObject().put("taskId", taskId).put("slot", slot).put("event", event).put("time", System.currentTimeMillis())
                 .put("lastFailure", lastFailure).put("pid", Process.myPid()).put("message", message.take(2000)).toString()
             val output = file.startWrite()
             try { output.write(data.toByteArray()); file.finishWrite(output) }
