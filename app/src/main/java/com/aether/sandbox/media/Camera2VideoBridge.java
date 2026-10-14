@@ -191,13 +191,13 @@ public final class Camera2VideoBridge implements AutoCloseable {
                 throw new IllegalArgumentException("Target request tidak terdaftar");
             stopRepeating();
             for (Surface target : request.getTargets()) {
-                pipelines.add(new SyntheticMediaPipeline(host, video, target, message -> {
+                pipelines.add(new SyntheticMediaPipeline(host, video, target, false, message -> {
                     if (message.startsWith("Video gagal")) {
                         android.util.Log.e("AetherCamera2", message);
                         if (!closed) callbacks.execute(() -> device.callback.onError(device, CameraDevice.StateCallback.ERROR_CAMERA_DEVICE));
                     }
                     return Unit.INSTANCE;
-                }, false));
+                }));
             }
             callbacks.execute(() -> { if (!closed) callback.onActive(this); });
             return ++sequence;

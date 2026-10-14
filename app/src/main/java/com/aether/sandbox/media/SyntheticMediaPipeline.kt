@@ -17,8 +17,8 @@ class SyntheticMediaPipeline(
     private val context: Context,
     private val uri: Uri,
     private val surface: Surface,
-    private val onStatus: (String) -> Unit,
     private val ownsSurface: Boolean = true,
+    private val onStatus: (String) -> Unit,
 ) : AutoCloseable {
     private val running = AtomicBoolean(true)
     private val playing = AtomicBoolean(true)
