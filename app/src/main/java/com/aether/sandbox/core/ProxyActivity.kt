@@ -1,6 +1,7 @@
 package com.aether.sandbox.core
 
 import android.content.BroadcastReceiver
+import androidx.core.net.toUri
 import android.os.Bundle
 import android.os.Process
 import android.util.Log
@@ -15,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import com.aether.sandbox.api.GuestLifecycle
 import com.aether.sandbox.data.SandboxRepository
 import com.aether.sandbox.domain.RuntimeLease
+import com.aether.sandbox.media.VideoCameraSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -26,6 +28,7 @@ class ProxyActivity : ComponentActivity() {
     @Volatile private var lease: RuntimeLease? = null
     private var loadingJob: Job? = null
     private var stopReceiver: BroadcastReceiver? = null
+    private var camera: VideoCameraSource? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +51,9 @@ class ProxyActivity : ComponentActivity() {
                     record to VirtualClassLoader.load(this@ProxyActivity, record, repository)
                 }
                 guest = GuestLifecycle(loaded.entry)
+                intent.getStringExtra(EXTRA_CAMERA_URI)?.let { source ->
+                    camera = VideoCameraSource(applicationContext, source.toUri()).also(loaded.entry::onVirtualCamera)
+                }
                 val layout = LinearLayout(this@ProxyActivity).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(24, 72, 24, 24)
@@ -98,6 +104,9 @@ class ProxyActivity : ComponentActivity() {
         val current = guest
         guest = null
         runCatching { current?.close() }.onFailure { Log.e("AetherRuntime", "Guest cleanup failed", it) }
+        // After the guest's own onDestroy, so a guest that stops its camera there wins the race.
+        camera?.close()
+        camera = null
     }
 
     override fun onDestroy() {
@@ -120,5 +129,9 @@ class ProxyActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    companion object { const val EXTRA_ID = "sandbox_id" }
+    companion object {
+        const val EXTRA_ID = "sandbox_id"
+        /** Optional video URI offered to guests through VirtualCamera. */
+        const val EXTRA_CAMERA_URI = "camera_uri"
+    }
 }

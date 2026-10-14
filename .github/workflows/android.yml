@@ -32,7 +32,7 @@ jobs:
       - name: APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: AetherSandbox-0.1.0-alpha.3
+          name: AetherSandbox-0.1.0-alpha.4
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk

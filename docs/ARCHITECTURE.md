@@ -43,6 +43,16 @@ Canonical path validation menolak traversal, absolute paths, dan symlink yang ke
 
 `RuntimeControl` mengirim broadcast `STOP_GUEST` dengan `setPackage` ke receiver dinamis `RECEIVER_NOT_EXPORTED` di proses runtime. Receiver memanggil `finish()`, sehingga teardown memakai jalur lifecycle yang sama dengan tombol di layar guest. Host menunggu lease dilepas sebelum melanjutkan hapus. Saluran ini satu arah; status lifecycle detail (pause/resume) dan perintah selain stop belum tersedia.
 
+## Kamera virtual alpha.4
+
+Host meneruskan URI video terpilih ke `ProxyActivity`, yang membuat `VideoCameraSource` dan memanggil `GuestEntry.onVirtualCamera` sebelum `createView`. Guest memanggil `start(listener)`; decoding berjalan di thread sendiri:
+
+MediaExtractor → MediaCodec (ByteBuffer, `COLOR_FormatYUV420Flexible`) → `getOutputImage` → `YuvPacker` (crop, hapus stride/pixel stride) → `VirtualCameraFrame` I420 → `onFrame`.
+
+Decoder tidak maju sebelum `onFrame` kembali, sehingga tidak ada frame yang dibuang dan timestamp adalah PTS video. Determinisme dijamin untuk video dan decoder yang sama; decoder perangkat lain dapat menghasilkan byte piksel berbeda. `start` ulang selalu mulai dari frame pertama, `stop` aman dipanggil dari listener, dan runtime menutup sumber setelah `onDestroy` guest.
+
+Batas: tidak ada mode real-time/loop, tidak ada output ke `Surface` atau emulasi API Camera2/CameraX, dan resolusi besar disalin per piksel jika pixel stride > 1 (belum dioptimasi/dibenchmark).
+
 ## Media dan lifecycle
 
 Pemilih video menyimpan izin URI persisten. MediaExtractor membaca track, MediaCodec mendecode ke Surface milik TextureView, dan timestamp media mengendalikan pacing. File diputar ulang saat akhir track. Pipeline dihentikan saat preview tidak resumed atau Surface dihancurkan. Decoder, extractor, dan Surface dilepas di blok finally worker.
@@ -63,7 +73,7 @@ Overlay menggunakan foreground service mediaPlayback yang dimulai dari tindakan 
 1. Buktikan fixture pada API 26/34/36 dan arm64 asli, termasuk resource, SQLite, data, siklus lifecycle, serta clean uninstall.
 2. Tambah IPC lifecycle dua arah (stop dari host dan status berjalan sudah ada sejak alpha.3), registry package/component, native library loading, dan test fixture multi-component.
 3. Evaluasi virtualisasi framework/Binder per versi Android. Buat matriks aplikasi/fitur yang benar-benar bekerja, termasuk pembatasan hidden API dan layanan sistem.
-4. Baru integrasikan kamera virtual pada target QA yang diizinkan. Uji preview/capture/Camera1/Camera2/CameraX/ImageReader secara terpisah.
+4. Kamera virtual opt-in berbasis frame I420 tersedia sejak alpha.4. Berikutnya: output Surface, mode real-time, dan adaptor Camera2/CameraX khusus aplikasi uji yang mengizinkan.
 5. Jalankan benchmark reproducible dan ubah angka target setelah hasil di perangkat tersedia.
 
 ## Referensi platform

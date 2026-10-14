@@ -41,3 +41,15 @@ Tanggal: 2026-10-14. Build Android lokal kini berjalan (JDK 17, SDK 36, NDK 27).
 | assembleDebug / assembleRelease (R8) / fixture / assembleDebugAndroidTest | Lulus |
 | Instrumented test baru `hostReportsRunningGuestAndStopsItRemotely` | Belum dijalankan lokal (tidak ada KVM); lihat workflow device tests |
 | Kontrol host pada HP fisik | Belum diuji |
+
+## Alpha.4 — kamera virtual
+
+Tanggal: 2026-10-14.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Unit test domain | 19 test lulus (termasuk 4 test `YuvPacker`: padding, crop, chroma semi-planar, batas buffer) |
+| app:lintDebug | 0 error |
+| assembleDebug / assembleRelease (R8, API guest dipertahankan) / fixture / assembleDebugAndroidTest | Lulus; `camera-test.mp4` (160x120, 30 frame H.264) dibundel di APK test |
+| `VirtualCameraTest` (2 run identik, stop dari listener, sidik fixture end-to-end) | Belum dijalankan lokal (tidak ada KVM); lihat workflow device tests |
+| Determinisme pada HP fisik / decoder hardware | Belum diuji |

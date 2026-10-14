@@ -8,7 +8,7 @@ Sumber: workbook pengguna, 2026-10-13. Kolom “SELESAI” pada workbook adalah 
 | 2. Loader/resource | DexClassLoader dan VirtualContext untuk fixture bertanda tangan sama; resource APK independen | Lifecycle/framework aplikasi umum, isolasi framework global |
 | 3. VFS | File/SQLite redirect kooperatif melalui Context; SharedPreferences namespace per UUID | PLT/libc hooking, syscall/native I/O interception, isolasi keamanan OS |
 | 4. Identitas | Test Android ID acak persisten per instance, regenerasi profil | Hook Settings/Telephony/WiFi/Build, IMEI/MAC spoof |
-| 5. Kamera | Surface preview lokal sebagai pondasi jalur media | Camera2 proxy, capture session interception, Camera1/CameraX, ImageReader/YUV |
+| 5. Kamera | Kamera virtual opt-in (`VirtualCamera`): frame I420 deterministik dari video uji untuk fixture | Camera2 proxy, capture session interception, Camera1/CameraX, output Surface |
 | 6. Media | MediaExtractor/MediaCodec → Surface, loop/pause/ulang/rotasi/cermin preview | EGL/OpenGL, video→kamera target, seek arbitrer, benchmark FPS/latensi |
 | 7. Overlay | Panel foreground draggable, pause/tutup/transparansi | Compose overlay, hot-swap kamera fisik/virtual, pergantian video langsung dalam target |
 | 8. Packaging | Gradle wrapper, universal APK tiga ABI, CMake/JNI diagnostics, R8 release build, CI | Production signing, profil RAM/thermal, angka target ukuran/performa |

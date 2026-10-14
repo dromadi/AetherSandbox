@@ -11,8 +11,8 @@ android {
         applicationId = "com.aether.sandbox"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.1.0-alpha.3"
+        versionCode = 4
+        versionName = "0.1.0-alpha.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         externalNativeBuild { cmake { cppFlags += "-std=c++20" } }

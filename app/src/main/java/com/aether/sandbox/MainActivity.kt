@@ -65,7 +65,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
             contentPadding = PaddingValues(vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("AetherSandbox", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("VirtuBox Core • 0.1.0-alpha.3", color = MaterialTheme.colorScheme.secondary)
+                Text("VirtuBox Core • 0.1.0-alpha.4", color = MaterialTheme.colorScheme.secondary)
             }
             item {
                 Card {
@@ -74,7 +74,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                         Text("Impor APK, kelola instance, dan jalankan fixture QA dengan data terpisah.")
                         Text("Android ${Build.VERSION.RELEASE} • $abi • ${state.records.size} instance • ${state.running.size} berjalan",
                             style = MaterialTheme.typography.bodySmall)
-                        Text("Runtime aplikasi umum dan intersepsi kamera: belum tersedia.", color = MaterialTheme.colorScheme.secondary,
+                        Text("Runtime aplikasi umum belum tersedia. Kamera virtual hanya untuk fixture yang opt-in.", color = MaterialTheme.colorScheme.secondary,
                             style = MaterialTheme.typography.bodySmall)
                         Button(enabled = !state.busy, onClick = { import.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream")) }) {
                             Text("Impor APK")
@@ -87,7 +87,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                 Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Video uji", style = MaterialTheme.typography.titleLarge)
-                        Text("Preview lokal dengan loop, pause, rotasi, dan cermin.")
+                        Text("Preview lokal dengan loop, pause, rotasi, dan cermin. Video ini juga menjadi kamera virtual deterministik untuk fixture yang dijalankan.")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { video.launch(arrayOf("video/*")) }) { Text("Pilih video") }
                             OutlinedButton(enabled = state.video != null, onClick = {
@@ -136,7 +136,10 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                                 Button(enabled = !state.busy, onClick = { model.stop(record.id) }) { Text("Hentikan") }
                             } else {
                                 Button(enabled = record.trustedFixture && !state.busy, onClick = {
-                                    context.startActivity(Intent(context, ProxyActivity::class.java).putExtra(ProxyActivity.EXTRA_ID, record.id))
+                                    context.startActivity(Intent(context, ProxyActivity::class.java)
+                                        .putExtra(ProxyActivity.EXTRA_ID, record.id)
+                                        // The selected test video becomes the guest's virtual camera.
+                                        .putExtra(ProxyActivity.EXTRA_CAMERA_URI, state.video?.toString()))
                                 }) { Text("Jalankan") }
                             }
                             OutlinedButton(enabled = !running && !state.busy, onClick = { model.regenerate(record.id) }) { Text("Profil baru") }
