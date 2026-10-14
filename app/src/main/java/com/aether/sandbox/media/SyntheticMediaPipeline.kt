@@ -107,7 +107,7 @@ class SyntheticMediaPipeline(
                     val render = running.get() && playing.get()
                     if (render && !ownsSurface) {
                         // Camera consumers need a monotonic timestamp even when the file loops.
-                        codec.releaseOutputBuffer(outputIndex, SystemClock.elapsedRealtimeNanos())
+                        codec.releaseOutputBuffer(outputIndex, System.nanoTime())
                     } else codec.releaseOutputBuffer(outputIndex, render)
                     if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                         extractor.seekTo(0, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)

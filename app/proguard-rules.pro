@@ -9,3 +9,5 @@
 # JNI and reflection entry points for the opt-in Camera2 process hook.
 -keep class de.robv.android.xposed.** { *; }
 -keep class com.aether.sandbox.media.Camera2VideoBridge$* { *; }
+
+-keep class android.hardware.camera2.AetherCameraDevice { *; }

@@ -37,7 +37,8 @@ public final class Camera2VideoBridge implements AutoCloseable {
             }
             if (Build.VERSION.SDK_INT >= 28) {
                 if (!HiddenApiBypass.addHiddenApiExemptions("Landroid/hardware/camera2/impl/CameraMetadataNative;",
-                    "Landroid/hardware/camera2/CaptureRequest$Builder;"))
+                    "Landroid/hardware/camera2/CaptureRequest$Builder;",
+                    "Landroid/hardware/camera2/CaptureRequest;", "Landroid/hardware/camera2/CameraDevice;"))
                     throw new IllegalStateException("Metadata kamera internal tidak tersedia");
             }
             // Probe request creation at install time so unsupported OS versions fail explicitly.
@@ -120,7 +121,7 @@ public final class Camera2VideoBridge implements AutoCloseable {
         hooks.clear();
     }
 
-    private final class VideoDevice extends CameraDevice {
+    private final class VideoDevice extends AetherCameraDevice {
         final String id;
         final StateCallback callback;
         final Executor callbacks;
@@ -187,10 +188,11 @@ public final class Camera2VideoBridge implements AutoCloseable {
         @Override public int setRepeatingRequest(CaptureRequest request, CaptureCallback listener, Handler handler) {
             if (closed || device.closed) throw new IllegalStateException("CaptureSession telah ditutup");
             if (listener != null) throw new UnsupportedOperationException("Capture metadata callback belum didukung");
-            if (request.getTargets().isEmpty() || !outputs.containsAll(request.getTargets()))
+            Collection<Surface> targets = targets(request);
+            if (targets.isEmpty() || !outputs.containsAll(targets))
                 throw new IllegalArgumentException("Target request tidak terdaftar");
             stopRepeating();
-            for (Surface target : request.getTargets()) {
+            for (Surface target : targets) {
                 pipelines.add(new SyntheticMediaPipeline(host, video, target, false, message -> {
                     if (message.startsWith("Video gagal")) {
                         android.util.Log.e("AetherCamera2", message);
@@ -213,6 +215,14 @@ public final class Camera2VideoBridge implements AutoCloseable {
         @Override public int capture(CaptureRequest request, CaptureCallback cb, Handler handler) { throw unsupported(); }
         @Override public int captureBurst(List<CaptureRequest> requests, CaptureCallback cb, Handler handler) { throw unsupported(); }
         @Override public int setRepeatingBurst(List<CaptureRequest> requests, CaptureCallback cb, Handler handler) { throw unsupported(); }
+    }
+    @SuppressWarnings("unchecked")
+    private static Collection<Surface> targets(CaptureRequest request) {
+        try {
+            Method method = CaptureRequest.class.getDeclaredMethod("getTargets");
+            method.setAccessible(true);
+            return (Collection<Surface>) method.invoke(request);
+        } catch (Exception failure) { throw new IllegalStateException("Target Surface tidak tersedia", failure); }
     }
     private static UnsupportedOperationException unsupported() { return new UnsupportedOperationException("Fitur Camera2 ini belum didukung kamera video"); }
 }
