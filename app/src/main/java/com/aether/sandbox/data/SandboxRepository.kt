@@ -5,7 +5,9 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.util.AtomicFile
+import com.aether.sandbox.core.RuntimeControl
 import com.aether.sandbox.domain.ArchiveValidator
 import com.aether.sandbox.domain.BoundedCopy
 import com.aether.sandbox.domain.SandboxPaths
@@ -30,6 +32,17 @@ data class SandboxRecord(
     val entryClass: String?,
     val trustedFixture: Boolean,
 )
+
+/** The guest's declared Android components, as read from its APK manifest. */
+data class GuestComponents(
+    val activities: List<String>,
+    val services: List<String>,
+    val providers: List<String>,
+    val receivers: List<String>,
+    val launcher: String?,
+) {
+    val total: Int get() = activities.size + services.size + providers.size + receivers.size
+}
 
 /** All mutations belong to the host ViewModel IO mutex. Child process only reads the index. */
 class SandboxRepository(private val context: Context) {
@@ -91,8 +104,36 @@ class SandboxRepository(private val context: Context) {
         }
     }
 
-    fun acquireRuntime(id: String): RuntimeLease =
-        RuntimeLease.acquire(File(context.filesDir, "runtime-locks"), id)
+    private val locks get() = File(context.filesDir, "runtime-locks")
+
+    /** Takes the instance lease, retrying while it is busy for up to [waitMillis]. */
+    fun acquireRuntime(id: String, waitMillis: Long = 0): RuntimeLease {
+        val deadline = SystemClock.uptimeMillis() + waitMillis
+        while (true) {
+            try {
+                return RuntimeLease.acquire(locks, id)
+            } catch (busy: RuntimeLease.Busy) {
+                if (SystemClock.uptimeMillis() >= deadline) throw busy
+                SystemClock.sleep(LEASE_POLL_MILLIS)
+            }
+        }
+    }
+
+    fun isRunning(id: String): Boolean = RuntimeLease.isHeld(locks, id)
+
+    fun runningIds(records: List<SandboxRecord> = list()): Set<String> =
+        records.map { it.id }.filterTo(mutableSetOf()) { isRunning(it) }
+
+    /** Asks the runtime of [id] to finish and waits until its lease is released. */
+    fun stop(id: String, waitMillis: Long = STOP_TIMEOUT_MILLIS) {
+        if (!isRunning(id)) return
+        RuntimeControl.requestStop(context, id)
+        val deadline = SystemClock.uptimeMillis() + waitMillis
+        while (isRunning(id)) {
+            if (SystemClock.uptimeMillis() >= deadline) throw IOException("Guest tidak berhenti dalam ${waitMillis / 1000} detik")
+            SystemClock.sleep(LEASE_POLL_MILLIS)
+        }
+    }
 
     fun regenerateProfile(id: String) = acquireRuntime(id).use {
         find(id)
@@ -111,23 +152,54 @@ class SandboxRepository(private val context: Context) {
     }
 
     fun verifyFixture(record: SandboxRecord): PackageInfo {
-        val file = apk(record)
-        val sink = object : java.io.OutputStream() {
-            override fun write(value: Int) = Unit
-            override fun write(buffer: ByteArray, offset: Int, length: Int) = Unit
-        }
-        val hash = file.inputStream().use { BoundedCopy.copyAndHash(it, sink, MAX_APK_BYTES) }
-        check(hash == record.sha256) { "Integritas APK berubah. Impor ulang fixture." }
-        val info = archiveInfo(file)
+        val info = verifyIntegrity(record)
         check(info.packageName == FIXTURE_PACKAGE && signerMatchesHost(info)
             && info.applicationInfo?.metaData?.getString(ENTRY_META) == record.entryClass
             && record.entryClass != null) { "Hanya fixture bertanda tangan sama dengan host yang dapat dijalankan" }
         return info
     }
 
+    /**
+     * Re-hashes the stored APK and returns its metadata. Confirms the file has not changed since
+     * import; it does NOT establish trust. A general guest runs with the host UID, so its code can
+     * read every instance's data and the host's own data. This is not a security boundary.
+     */
+    fun verifyIntegrity(record: SandboxRecord): PackageInfo {
+        val file = apk(record)
+        val sink = object : java.io.OutputStream() {
+            override fun write(value: Int) = Unit
+            override fun write(buffer: ByteArray, offset: Int, length: Int) = Unit
+        }
+        val hash = file.inputStream().use { BoundedCopy.copyAndHash(it, sink, MAX_APK_BYTES) }
+        check(hash == record.sha256) { "Integritas APK berubah. Impor ulang APK." }
+        val info = archiveInfo(file, PackageManager.GET_ACTIVITIES)
+        info.applicationInfo?.apply { sourceDir = file.path; publicSourceDir = file.path }
+        return info
+    }
+
+    /**
+     * Collects the guest's declared components from the stored APK. This is the registry the
+     * runtime will need before it can start the guest's Activities/Services; alpha.5 only reports
+     * it. Launcher resolution is a heuristic on manifest order — the archive does not expose intent
+     * filters — so a guest whose launcher is not its first activity needs manifest parsing (future).
+     */
+    fun guestComponents(record: SandboxRecord): GuestComponents {
+        val info = archiveInfo(apk(record),
+            PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES
+                or PackageManager.GET_PROVIDERS or PackageManager.GET_RECEIVERS)
+        fun names(items: Array<out android.content.pm.ComponentInfo>?) = items.orEmpty().map { it.name }
+        val activities = names(info.activities)
+        return GuestComponents(activities, names(info.services), names(info.providers),
+            names(info.receivers), activities.firstOrNull())
+    }
+
+    /** Package name of the activity declared as the app's launcher, if the archive exposes one. */
+    fun launcherActivity(info: PackageInfo): String? =
+        info.activities?.firstOrNull()?.name
+
     @Suppress("DEPRECATION")
-    private fun archiveInfo(file: File): PackageInfo {
-        val flags = PackageManager.GET_META_DATA or if (Build.VERSION.SDK_INT >= 28)
+    private fun archiveInfo(file: File, extra: Int = 0): PackageInfo {
+        val flags = PackageManager.GET_META_DATA or extra or if (Build.VERSION.SDK_INT >= 28)
             PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
         return context.packageManager.getPackageArchiveInfo(file.path, flags)
             ?: throw IOException("APK tidak valid atau tidak kompatibel")
@@ -169,6 +241,9 @@ class SandboxRepository(private val context: Context) {
         const val MAX_APK_BYTES = 256L * 1024 * 1024
         const val ENTRY_META = "com.aether.sandbox.GUEST_ENTRY"
         const val FIXTURE_PACKAGE = "com.aether.fixture"
+        const val STOP_TIMEOUT_MILLIS = 5_000L
+        const val LAUNCH_LEASE_WAIT_MILLIS = 1_000L
+        private const val LEASE_POLL_MILLIS = 50L
     }
 }
 

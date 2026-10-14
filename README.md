@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.2**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.5**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -24,17 +24,40 @@ Versi awal: **0.1.0-alpha.2**. Android 8–16 (minSdk 26, targetSdk 36).
 - Lease tetap dipegang sampai pemuatan IO selesai jika Activity ditutup saat loading.
 - Unit test lease/lifecycle dan pengujian perangkat untuk mutasi yang ditolak saat guest berjalan.
 
+## Pembaruan alpha.5 — runtime aplikasi umum (milestone 1)
+
+- APK pihak ketiga (bukan fixture) kini dapat **dimuat dan dijalankan**, bukan hanya dibaca metadatanya. Tombol **Jalankan** aktif untuk semua APK.
+- `GeneralGuestLoader` memuat kelas dan resource guest lewat classloader terpisah (parent = boot classloader, sehingga kelas host tidak terlihat), lalu menginstansiasi dan menjalankan `Application.onCreate()` guest di atas `VirtualContext` per instance.
+- File, database, dan preferensi guest diarahkan ke penyimpanan instance. Modul contoh `sampleapp` membuktikan `Application.onCreate` berjalan dan datanya terpisah antar instance.
+- **Peringatan keamanan:** guest berjalan dengan UID host. Kode APK yang dijalankan dapat membaca data semua instance dan data host. Ini virtualisasi kooperatif, **bukan** sandbox keamanan. Jangan jalankan APK yang tidak Anda percayai.
+- **Batas milestone 1:** Activity, Service, Provider, dan Broadcast milik guest **belum** dijalankan. Itu butuh intersepsi ActivityManager/Binder dan menjadi milestone berikutnya.
+
+## Pembaruan alpha.4 — kamera virtual deterministik (opt-in)
+
+- Kontrak baru `VirtualCamera` dan `VirtualCameraFrame` di `guest-api`. Guest yang mengimplementasikan `GuestEntry.onVirtualCamera` menerima video uji yang dipilih di host sebagai input kamera.
+- **Deterministik:** setiap frame didecode berurutan, tidak ada yang dibuang, dan timestamp berasal dari video, bukan jam. Video yang sama di perangkat yang sama menghasilkan urutan dan byte frame yang sama setiap run.
+- Frame dikirim sebagai I420 rapat (padding stride dan chroma interleaved dihapus oleh `YuvPacker`).
+- Fixture menampilkan thumbnail grayscale, progres frame, dan **sidik CRC32** seluruh frame untuk membandingkan run.
+- Hanya untuk guest opt-in. Kamera aplikasi lain dan kamera fisik tidak disentuh.
+
+## Pembaruan alpha.3 — kontrol runtime dari host
+
+- Status **Berjalan/Berhenti** per instance dan jumlah guest aktif di layar utama, diperbarui setiap host kembali ke depan.
+- Tombol **Hentikan** dan **Hentikan semua** dari host. Perintah dikirim lewat broadcast yang terbatas pada paket ini ke receiver yang tidak di-export, lalu host menunggu lease dilepas (maks. 5 detik).
+- **Hapus instance** menghentikan guest yang masih berjalan terlebih dahulu.
+- Status dibaca dari lease OS yang sama dengan runtime, sehingga proses guest yang mati tidak meninggalkan status "berjalan" palsu. Runtime mengambil lease di thread IO dan mencoba ulang hingga 1 detik bila bertabrakan dengan probe status.
+
 ## Batas alpha ini
 
-APK umum dapat diimpor dan ditampilkan metadatanya, tetapi **belum dapat dijalankan sebagai aplikasi Android penuh**. APK fixture menerapkan kontrak `GuestEntry`, bukan Activity/Service pihak ketiga yang tidak dimodifikasi.
+APK umum kini dimuat dan menjalankan `Application.onCreate()`-nya (alpha.5, milestone 1), tetapi **belum dapat menjalankan Activity/Service/Provider pihak ketiga** — itu butuh intersepsi ActivityManager/Binder. APK fixture tetap mendapat jalur UI penuh melalui kontrak `GuestEntry`.
 
 `VirtualContext` mengarahkan operasi file dan SQLite yang dipanggil melalui context tersebut. SharedPreferences menggunakan namespace per instance di penyimpanan host. Pemanggilan filesystem langsung, JNI, Binder, PackageManager, dan framework singleton belum divirtualisasi.
 
-Proses guest memakai UID host yang sama. Pemisahan proses/namespace ini **bukan isolasi keamanan untuk menjalankan malware**. APK tak tepercaya hanya dibaca, tidak dieksekusi.
+Proses guest memakai UID host yang sama. Pemisahan proses/namespace ini **bukan isolasi keamanan untuk menjalankan malware**. Sejak alpha.5 APK umum dieksekusi kodenya; kode itu berjalan dengan UID host dan dapat membaca data instance lain dan data host. Jalankan hanya APK yang Anda percayai.
 
 Profil mengandung nilai sintetis yang diberikan secara eksplisit kepada fixture. Alpha ini belum mengganti ANDROID_ID sistem, IMEI, MAC, atau `android.os.Build`.
 
-Video tampil di Surface milik Aether. Alpha ini belum mengganti kamera aplikasi lain, belum menyediakan output ImageReader/YUV, dan belum melakukan hot-swap kamera fisik. Angka RAM, FPS, ukuran APK, waktu launch, dan perbandingan VMOS/VPhone pada grand design adalah target yang belum dibenchmark.
+Kamera virtual hanya tersedia bagi fixture opt-in melalui `VirtualCamera` (frame I420, tanpa pacing real-time). Alpha ini tidak mengganti kamera aplikasi lain, tidak mengemulasikan API Camera1/Camera2/CameraX, dan tidak melakukan hot-swap kamera fisik. Angka RAM, FPS, ukuran APK, waktu launch, dan perbandingan VMOS/VPhone pada grand design adalah target yang belum dibenchmark.
 
 ## Build
 
@@ -62,7 +85,9 @@ Build host dan fixture pada komputer/CI yang sama agar keduanya menggunakan debu
 5. Impor fixture yang sama lagi. Instance kedua harus memiliki direktori, ID, dan penghitung yang berbeda.
 6. Pilih video lokal. Uji pause/play, ulang, rotasi, cermin, keluar/masuk layar, dan loop.
 7. Tekan **Panel**, berikan izin overlay, lalu tekan lagi. Uji geser/transparansi dan tutup panel melalui panel/notifikasi.
-8. Tekan **Hentikan guest** atau kembali dari layar guest. Kemudian hapus instance. APK, direktori, database, preference namespace, dan cache kode instance tersebut dihapus.
+8. Dengan video terpilih, jalankan fixture dan tekan **Mulai kamera virtual** dua kali. Kedua hasil harus menunjukkan jumlah frame dan sidik yang sama.
+9. Kembali ke host saat guest masih berjalan: kartu harus menunjukkan **● Berjalan**. Tekan **Hentikan** dari host; status harus kembali **○ Berhenti**.
+10. Tekan **Hentikan guest** atau kembali dari layar guest. Kemudian hapus instance. APK, direktori, database, preference namespace, dan cache kode instance tersebut dihapus.
 
 Untuk instrumented tests:
 

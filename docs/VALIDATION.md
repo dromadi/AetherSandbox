@@ -28,3 +28,41 @@ Tidak ada hasil perangkat yang dinyatakan lulus sebelum workflow selesai. Hasil 
 Perubahan lifecycle/lease menambahkan 4 unit test domain (termasuk subprocess JVM), 3 unit test lifecycle, serta assertion instrumentasi untuk penolakan hapus/perubahan profil ketika proses guest berjalan dan pelepasan lease melalui tombol stop. Hasil alpha.1 di atas adalah historis dan tidak otomatis berlaku untuk alpha.2. Build Android lokal alpha.2 belum dapat dijalankan karena unduhan Gradle diblokir jaringan; hasil build/lint dan perangkat alpha.2 harus dilihat pada CI PR terkait.
 
 Harness Java lokal berhasil memeriksa eksklusi antarproses setelah percobaan duplikat lokal, instance berbeda, release/reacquire, urutan lifecycle, serta cleanup ketika callback gagal. Harness memakai stub Android untuk signature Context/View, sehingga tidak menggantikan build atau pengujian perangkat Android.
+
+## Alpha.3 — validasi perubahan
+
+Tanggal: 2026-10-14. Build Android lokal kini berjalan (JDK 17, SDK 36, NDK 27).
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Unit test domain | 15 test lulus (termasuk `isHeld` dan probe antarproses) |
+| app:testDebugUnitTest | 3 test lulus |
+| app:lintDebug | 0 error, 32 warning (teks UI hardcoded dan saran versi dependensi) |
+| assembleDebug / assembleRelease (R8) / fixture / assembleDebugAndroidTest | Lulus |
+| Instrumented test baru `hostReportsRunningGuestAndStopsItRemotely` | Belum dijalankan lokal (tidak ada KVM); lihat workflow device tests |
+| Kontrol host pada HP fisik | Belum diuji |
+
+## Alpha.4 — kamera virtual
+
+Tanggal: 2026-10-14.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Unit test domain | 19 test lulus (termasuk 4 test `YuvPacker`: padding, crop, chroma semi-planar, batas buffer) |
+| app:lintDebug | 0 error |
+| assembleDebug / assembleRelease (R8, API guest dipertahankan) / fixture / assembleDebugAndroidTest | Lulus; `camera-test.mp4` (160x120, 30 frame H.264) dibundel di APK test |
+| `VirtualCameraTest` (2 run identik, stop dari listener, sidik fixture end-to-end) | Belum dijalankan lokal (tidak ada KVM); lihat workflow device tests |
+| Determinisme pada HP fisik / decoder hardware | Belum diuji |
+
+## Alpha.5 — runtime aplikasi umum (milestone 1)
+
+Tanggal: 2026-10-14.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Unit test domain | 19 test lulus |
+| app:testDebugUnitTest | 3 test lulus |
+| app:lintDebug | 0 error, 32 warning |
+| assembleDebug / assembleRelease (R8) / fixture / sampleapp / assembleDebugAndroidTest | Lulus; `fixture.apk` dan `sampleapp.apk` dibundel di APK test |
+| `GeneralGuestTest` (sampleapp: resource, `Application.onCreate`, storage terpisah, registry komponen) | Belum dijalankan lokal (tidak ada KVM); lihat workflow device tests |
+| Eksekusi Activity/Service guest | Tidak ada; di luar lingkup milestone 1 |

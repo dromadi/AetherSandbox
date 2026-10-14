@@ -4,4 +4,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "AetherSandbox"
-include(":app", ":domain", ":guest-api", ":fixture")
+include(":app", ":domain", ":guest-api", ":fixture", ":sampleapp")

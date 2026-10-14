@@ -1,8 +1,10 @@
 package com.aether.sandbox.core
 
+import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.SharedPreferences
+import android.content.pm.ApplicationInfo
 import android.content.res.AssetManager
 import android.content.res.Resources
 import android.database.sqlite.SQLiteDatabase
@@ -19,7 +21,10 @@ class VirtualContext(
     private val instanceId: String,
     private val loader: ClassLoader,
     private val guestResources: Resources,
+    private val guestApplicationInfo: ApplicationInfo? = null,
 ) : ContextWrapper(host) {
+    /** The guest Application once instantiated; it becomes this context's applicationContext. */
+    var application: Application? = null
     private fun directory(name: String) = SandboxPaths.resolve(guestRoot, name).apply {
         check(isDirectory || mkdirs()) { "Gagal membuat direktori guest" }
     }
@@ -29,7 +34,8 @@ class VirtualContext(
     }
 
     override fun getPackageName() = guestPackage
-    override fun getApplicationContext(): Context = this
+    override fun getApplicationContext(): Context = application ?: this
+    override fun getApplicationInfo(): ApplicationInfo = guestApplicationInfo ?: super.getApplicationInfo()
     override fun getClassLoader() = loader
     override fun getResources() = guestResources
     override fun getAssets(): AssetManager = guestResources.assets

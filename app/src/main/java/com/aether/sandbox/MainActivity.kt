@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aether.sandbox.core.NativeDiagnostics
@@ -53,6 +55,8 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val abi = remember { runCatching { NativeDiagnostics.abi() }.getOrDefault("native library unavailable") }
     val snackbar = remember { SnackbarHostState() }
+    // Guests run in another process: re-read their status whenever the host returns to front.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { model.refresh() }
     LaunchedEffect(state.message) {
         state.message?.let { snackbar.showSnackbar(it); model.dismissMessage() }
     }
@@ -61,15 +65,16 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
             contentPadding = PaddingValues(vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("AetherSandbox", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("VirtuBox Core • 0.1.0-alpha.2", color = MaterialTheme.colorScheme.secondary)
+                Text("VirtuBox Core • 0.1.0-alpha.5", color = MaterialTheme.colorScheme.secondary)
             }
             item {
                 Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Laboratorium Android", style = MaterialTheme.typography.titleLarge)
-                        Text("Impor APK, kelola instance, dan jalankan fixture QA dengan data terpisah.")
-                        Text("Android ${Build.VERSION.RELEASE} • $abi • ${state.records.size} instance", style = MaterialTheme.typography.bodySmall)
-                        Text("Runtime aplikasi umum dan intersepsi kamera: belum tersedia.", color = MaterialTheme.colorScheme.secondary,
+                        Text("Impor APK, kelola instance, jalankan fixture penuh atau muat aplikasi umum dengan data terpisah.")
+                        Text("Android ${Build.VERSION.RELEASE} • $abi • ${state.records.size} instance • ${state.running.size} berjalan",
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Aplikasi umum: kode dan Application berjalan (milestone 1). Kamera virtual untuk fixture opt-in.", color = MaterialTheme.colorScheme.secondary,
                             style = MaterialTheme.typography.bodySmall)
                         Button(enabled = !state.busy, onClick = { import.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream")) }) {
                             Text("Impor APK")
@@ -82,7 +87,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                 Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Video uji", style = MaterialTheme.typography.titleLarge)
-                        Text("Preview lokal dengan loop, pause, rotasi, dan cermin.")
+                        Text("Preview lokal dengan loop, pause, rotasi, dan cermin. Video ini juga menjadi kamera virtual deterministik untuk fixture yang dijalankan.")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { video.launch(arrayOf("video/*")) }) { Text("Pilih video") }
                             OutlinedButton(enabled = state.video != null, onClick = {
@@ -102,25 +107,43 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                     }
                 }
             }
-            item { Text("Instance APK", style = MaterialTheme.typography.titleLarge) }
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Instance APK", style = MaterialTheme.typography.titleLarge)
+                    if (state.running.isNotEmpty()) {
+                        TextButton(enabled = !state.busy, onClick = model::stopAll) { Text("Hentikan semua") }
+                    }
+                }
+            }
             if (state.records.isEmpty()) item {
                 Text("Belum ada APK. Untuk menguji runtime, impor fixture-debug.apk dari hasil build.", color = MaterialTheme.colorScheme.secondary)
             }
             items(state.records, key = { it.id }) { record ->
+                val running = record.id in state.running
                 Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(record.label, style = MaterialTheme.typography.titleMedium)
+                        Text(if (running) "● Berjalan" else "○ Berhenti", style = MaterialTheme.typography.labelMedium,
+                            color = if (running) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary)
                         Text("${record.packageName} • ${record.versionName}", style = MaterialTheme.typography.bodySmall)
                         Text("${record.bytes / 1024 / 1024} MB • Instance ${record.id.take(8)}", style = MaterialTheme.typography.bodySmall)
                         Text("Test ID: ${record.testAndroidId}", style = MaterialTheme.typography.bodySmall)
                         Text("SHA-256: ${record.sha256.take(16)}…", style = MaterialTheme.typography.bodySmall)
-                        Text(if (record.trustedFixture) "Fixture kompatibel" else "Metadata tersimpan; runtime belum kompatibel",
+                        Text(if (record.trustedFixture) "Fixture kompatibel: UI penuh + kamera virtual"
+                            else "Aplikasi umum: kode + resource + Application (milestone 1)",
                             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(enabled = record.trustedFixture && !state.busy, onClick = {
-                                context.startActivity(Intent(context, ProxyActivity::class.java).putExtra(ProxyActivity.EXTRA_ID, record.id))
-                            }) { Text("Jalankan") }
-                            OutlinedButton(enabled = !state.busy, onClick = { model.regenerate(record.id) }) { Text("Profil baru") }
+                            if (running) {
+                                Button(enabled = !state.busy, onClick = { model.stop(record.id) }) { Text("Hentikan") }
+                            } else {
+                                Button(enabled = !state.busy, onClick = {
+                                    context.startActivity(Intent(context, ProxyActivity::class.java)
+                                        .putExtra(ProxyActivity.EXTRA_ID, record.id)
+                                        // The selected test video becomes a fixture's virtual camera.
+                                        .putExtra(ProxyActivity.EXTRA_CAMERA_URI, state.video?.toString()))
+                                }) { Text("Jalankan") }
+                            }
+                            OutlinedButton(enabled = !running && !state.busy, onClick = { model.regenerate(record.id) }) { Text("Profil baru") }
                         }
                         TextButton(enabled = !state.busy, onClick = { deleting = record }) { Text("Hapus instance") }
                     }
@@ -130,7 +153,10 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
     }
     deleting?.let { record ->
         AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Hapus instance?") },
-            text = { Text("APK dan data instance ${record.id.take(8)} akan dihapus. Jika guest masih berjalan, hentikan melalui tombol Hentikan guest terlebih dahulu.") },
+            text = {
+                val note = if (record.id in state.running) " Guest yang sedang berjalan akan dihentikan terlebih dahulu." else ""
+                Text("APK dan data instance ${record.id.take(8)} akan dihapus.$note")
+            },
             confirmButton = { TextButton(onClick = { model.delete(record.id); deleting = null }) { Text("Hapus") } },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Batal") } })
     }

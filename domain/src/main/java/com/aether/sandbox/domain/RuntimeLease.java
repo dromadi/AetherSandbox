@@ -52,8 +52,25 @@ public final class RuntimeLease implements AutoCloseable {
         }
     }
 
-    private static IOException busy() {
-        return new IOException("Instance sedang digunakan. Hentikan guest sebelum mengubah atau menghapus data.");
+    /**
+     * Reports whether another owner holds the lease. The probe briefly takes the lease when it is
+     * free, so a runtime starting at the same moment must retry {@link Busy} for a short time.
+     */
+    public static synchronized boolean isHeld(File lockRoot, String id) throws IOException {
+        try (RuntimeLease ignored = acquire(lockRoot, id)) {
+            return false;
+        } catch (Busy busy) {
+            return true;
+        }
+    }
+
+    private static Busy busy() {
+        return new Busy();
+    }
+
+    /** The instance is leased by a runtime or a destructive mutation. */
+    public static final class Busy extends IOException {
+        Busy() { super("Instance sedang digunakan. Hentikan guest sebelum mengubah atau menghapus data."); }
     }
 
     @Override public synchronized void close() throws IOException {
