@@ -23,7 +23,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class ProxyActivity : ComponentActivity() {
+open class ProxyActivity : ComponentActivity() {
+    open val slot = 0
+    @Volatile private var slotLease: RuntimeLease? = null
+    private var journal: RuntimeJournal? = null
+    private val terminating = java.util.concurrent.atomic.AtomicBoolean(false)
+
     private var guest: GuestLifecycle? = null
     private var generalApp: android.app.Application? = null
     @Volatile private var lease: RuntimeLease? = null
@@ -47,14 +52,24 @@ class ProxyActivity : ComponentActivity() {
             try {
                 val record = withContext(Dispatchers.IO) {
                     // The host's status probe can hold the free lease for an instant: retry briefly.
+                    slotLease = RuntimeSlots.acquire(this@ProxyActivity, slot)
                     lease = repository.acquireRuntime(id, SandboxRepository.LAUNCH_LEASE_WAIT_MILLIS)
                     repository.find(id)
                 }
+                journal = RuntimeJournal(repository.directory(record.id)).also { it.record("STARTING") }
+                val previous = Thread.getDefaultUncaughtExceptionHandler()
+                Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+                    journal?.record("CRASHED", "${error.javaClass.name}: ${error.message}")
+                    previous?.uncaughtException(thread, error)
+                    Process.killProcess(Process.myPid())
+                }
                 if (record.trustedFixture) loadFixture(repository, record)
                 else loadGeneralApp(repository, record)
+                journal?.record("RUNNING")
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
+                journal?.record("FAILED", "${error.javaClass.name}: ${error.message}")
                 closeGuest()
                 loading.text = "Guest gagal dimuat: ${error.message}"
                 setContentView(loading)
@@ -79,11 +94,12 @@ class ProxyActivity : ComponentActivity() {
     }
 
     private suspend fun loadGeneralApp(repository: SandboxRepository, record: com.aether.sandbox.data.SandboxRecord) {
-        val loaded = withContext(Dispatchers.IO) { GeneralGuestLoader.load(this@ProxyActivity, record, repository) }
+        val prepared = withContext(Dispatchers.IO) { GeneralGuestLoader.prepare(this@ProxyActivity, record, repository) }
+        val loaded = GeneralGuestLoader.start(prepared)
         generalApp = loaded.application
         val c = loaded.components
         val report = buildString {
-            append("Kode dan resource guest dimuat di instance terisolasi.\n\n")
+            append("Kode dan resource guest dimuat di direktori per instance (UID host sama).\n\n")
             append("Paket: ${record.packageName}\n")
             append("Application: ${loaded.application.javaClass.name}\n")
             append("Classloader: ${loaded.context.classLoader.javaClass.simpleName}\n")
@@ -143,23 +159,37 @@ class ProxyActivity : ComponentActivity() {
         camera = null
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        // A rapid host launch may race slot selection. Never replace the existing guest.
+        if (intent.getStringExtra(EXTRA_ID) != this.intent.getStringExtra(EXTRA_ID)) {
+            android.widget.Toast.makeText(this, "Slot sedang digunakan. Coba jalankan kembali dari host.", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onDestroy() {
+        val ownsSlot = slotLease != null
+        if (ownsSlot && terminating.compareAndSet(false, true)) {
+            // Keep both OS leases until death, so 'stopped' implies every guest thread is gone.
+            // Start BEFORE callbacks: a hung guest cleanup must not prevent process termination.
+            Thread({
+                android.os.SystemClock.sleep(250)
+                journal?.record("STOPPED")
+                Process.killProcess(Process.myPid())
+            }, "aether-runtime-stop").start()
+        }
         stopReceiver?.let { runCatching { unregisterReceiver(it) } }
         stopReceiver = null
-        closeGuest()
-        val job = loadingJob
-        job?.cancel()
-        // Cancellation does not interrupt file IO immediately. Keep the lease until loading exits;
-        // the IO job may still be acquiring it, so read the field only after the job completes.
-        val release = {
-            val held = lease
-            lease = null
-            runCatching { held?.close() }
-                .onFailure { Log.e("AetherRuntime", "Runtime lease release failed", it) }
-            Unit
+        loadingJob?.let { job ->
+            job.cancel()
+            job.invokeOnCompletion {
+                if (slotLease != null && terminating.compareAndSet(false, true)) {
+                    journal?.record("STOPPED")
+                    Process.killProcess(Process.myPid())
+                }
+            }
         }
-        if (job == null || job.isCompleted) release()
-        else job.invokeOnCompletion { release() }
+        closeGuest()
         super.onDestroy()
     }
 

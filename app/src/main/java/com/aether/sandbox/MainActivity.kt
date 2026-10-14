@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -35,6 +36,12 @@ import com.aether.sandbox.ui.MainViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        intent.getStringExtra(ProxyActivity.EXTRA_ID)?.let { id ->
+            startActivity(Intent(this, com.aether.sandbox.core.RuntimeRouterActivity::class.java)
+                .putExtra(ProxyActivity.EXTRA_ID, id))
+            finish()
+            return
+        }
         enableEdgeToEdge()
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(
@@ -49,9 +56,19 @@ class MainActivity : ComponentActivity() {
 private fun AetherScreen(model: MainViewModel = viewModel()) {
     val state by model.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var resetting by remember { mutableStateOf<SandboxRecord?>(null) }
+    var renaming by remember { mutableStateOf<SandboxRecord?>(null) }
+    var newName by remember { mutableStateOf("") }
+    var launching by remember { mutableStateOf<SandboxRecord?>(null) }
     var deleting by remember { mutableStateOf<SandboxRecord?>(null) }
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::importApk) }
     val video = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::chooseVideo) }
+    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri -> uri?.let(model::exportReport) }
+    fun launchGuest(record: SandboxRecord) {
+        context.startActivity(Intent(context, com.aether.sandbox.core.RuntimeRouterActivity::class.java)
+            .putExtra(ProxyActivity.EXTRA_ID, record.id)
+            .putExtra(ProxyActivity.EXTRA_CAMERA_URI, state.video?.toString()))
+    }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val abi = remember { runCatching { NativeDiagnostics.abi() }.getOrDefault("native library unavailable") }
     val snackbar = remember { SnackbarHostState() }
@@ -65,7 +82,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
             contentPadding = PaddingValues(vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("AetherSandbox", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("VirtuBox Core • 0.1.0-alpha.5", color = MaterialTheme.colorScheme.secondary)
+                Text("VirtuBox Core • 0.1.0-alpha.6", color = MaterialTheme.colorScheme.secondary)
             }
             item {
                 Card {
@@ -74,7 +91,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                         Text("Impor APK, kelola instance, jalankan fixture penuh atau muat aplikasi umum dengan data terpisah.")
                         Text("Android ${Build.VERSION.RELEASE} • $abi • ${state.records.size} instance • ${state.running.size} berjalan",
                             style = MaterialTheme.typography.bodySmall)
-                        Text("Aplikasi umum: kode dan Application berjalan (milestone 1). Kamera virtual untuk fixture opt-in.", color = MaterialTheme.colorScheme.secondary,
+                        Text("Empat slot runtime. Aplikasi umum baru menjalankan Application, belum layar aplikasinya. Semua guest memakai UID host; jalankan APK yang Anda percayai.", color = MaterialTheme.colorScheme.secondary,
                             style = MaterialTheme.typography.bodySmall)
                         Button(enabled = !state.busy, onClick = { import.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream")) }) {
                             Text("Impor APK")
@@ -122,7 +139,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                 val running = record.id in state.running
                 Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(record.label, style = MaterialTheme.typography.titleMedium)
+                        Text(record.instanceName, style = MaterialTheme.typography.titleMedium)
                         Text(if (running) "● Berjalan" else "○ Berhenti", style = MaterialTheme.typography.labelMedium,
                             color = if (running) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary)
                         Text("${record.packageName} • ${record.versionName}", style = MaterialTheme.typography.bodySmall)
@@ -137,19 +154,63 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                                 Button(enabled = !state.busy, onClick = { model.stop(record.id) }) { Text("Hentikan") }
                             } else {
                                 Button(enabled = !state.busy, onClick = {
-                                    context.startActivity(Intent(context, ProxyActivity::class.java)
-                                        .putExtra(ProxyActivity.EXTRA_ID, record.id)
-                                        // The selected test video becomes a fixture's virtual camera.
-                                        .putExtra(ProxyActivity.EXTRA_CAMERA_URI, state.video?.toString()))
+                                    if (record.trustedFixture) launchGuest(record) else launching = record
                                 }) { Text("Jalankan") }
                             }
                             OutlinedButton(enabled = !running && !state.busy, onClick = { model.regenerate(record.id) }) { Text("Profil baru") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(enabled = !state.busy, onClick = { model.duplicate(record.id) }) { Text("Duplikasi") }
+                            TextButton(enabled = !state.busy, onClick = { renaming = record; newName = record.instanceName }) { Text("Nama") }
+                            TextButton(enabled = !state.busy, onClick = { model.inspect(record.id) }) { Text("Laporan") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(enabled = !state.busy, onClick = { resetting = record }) { Text("Reset data") }
+                            TextButton(enabled = !state.busy, onClick = {
+                                val manager = context.getSystemService(android.content.pm.ShortcutManager::class.java)
+                                if (!manager.isRequestPinShortcutSupported) model.message("Launcher HP tidak mendukung shortcut")
+                                else {
+                                    val shortcut = android.content.pm.ShortcutInfo.Builder(context, record.id)
+                                        .setShortLabel(record.instanceName.take(30))
+                                        .setIcon(android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_aether))
+                                        .setIntent(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+                                            .putExtra(ProxyActivity.EXTRA_ID, record.id)).build()
+                                    if (manager.requestPinShortcut(shortcut, null)) model.message("Permintaan shortcut dikirim ke launcher")
+                                    else model.message("Shortcut tidak dapat dibuat")
+                                }
+                            }) { Text("Shortcut") }
                         }
                         TextButton(enabled = !state.busy, onClick = { deleting = record }) { Text("Hapus instance") }
                     }
                 }
             }
         }
+    }
+    launching?.let { record ->
+        AlertDialog(onDismissRequest = { launching = null }, title = { Text("Jalankan kode APK?") },
+            text = { Text("${record.instanceName} akan menjalankan Application dengan UID host dan dapat mengakses data host serta instance lain. Layar Activity aplikasi belum didukung.") },
+            confirmButton = { TextButton(onClick = { launchGuest(record); launching = null }) { Text("Jalankan") } },
+            dismissButton = { TextButton(onClick = { launching = null }) { Text("Batal") } })
+    }
+    renaming?.let { record ->
+        AlertDialog(onDismissRequest = { renaming = null }, title = { Text("Nama instance") },
+            text = { OutlinedTextField(value = newName, onValueChange = { newName = it.take(80) }, singleLine = true, label = { Text("Nama") }) },
+            confirmButton = { TextButton(enabled = newName.isNotBlank(), onClick = { model.rename(record.id, newName); renaming = null }) { Text("Simpan") } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Batal") } })
+    }
+    resetting?.let { record ->
+        AlertDialog(onDismissRequest = { resetting = null }, title = { Text("Reset data instance?") },
+            text = { Text("Data akun, file, database, dan preferences ${record.instanceName} dihapus. APK dan profil uji tetap tersedia. Guest aktif akan dihentikan.") },
+            confirmButton = { TextButton(onClick = { model.resetData(record.id); resetting = null }) { Text("Reset") } },
+            dismissButton = { TextButton(onClick = { resetting = null }) { Text("Batal") } })
+    }
+    state.report?.let { report ->
+        AlertDialog(onDismissRequest = model::dismissReport, title = { Text("Laporan runtime") },
+            text = { androidx.compose.foundation.layout.Box(Modifier.heightIn(max = 400.dp)) {
+                Text(report, modifier = Modifier.then(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())), style = MaterialTheme.typography.bodySmall)
+            } },
+            confirmButton = { TextButton(enabled = !state.busy, onClick = { export.launch("AetherSandbox-runtime.txt") }) { Text("Ekspor") } },
+            dismissButton = { TextButton(onClick = model::dismissReport) { Text("Tutup") } })
     }
     deleting?.let { record ->
         AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Hapus instance?") },

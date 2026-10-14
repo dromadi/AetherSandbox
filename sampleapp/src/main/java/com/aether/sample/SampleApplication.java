@@ -10,9 +10,28 @@ import java.nio.file.Files;
 public final class SampleApplication extends Application {
     @Override public void onCreate() {
         super.onCreate();
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            throw new IllegalStateException("Guest Application must start on the main thread");
+        }
         try {
             File marker = new File(getFilesDir(), "started.txt");
             Files.write(marker.toPath(), ("onCreate:" + getPackageName()).getBytes(StandardCharsets.UTF_8));
+            if (new File(getFilesDir(), "start-worker").exists()) {
+                Thread worker = new Thread(() -> {
+                    while (true) {
+                        try {
+                            Files.write(new File(getFilesDir(), "heartbeat.txt").toPath(),
+                                Long.toString(android.os.SystemClock.elapsedRealtime()).getBytes(StandardCharsets.UTF_8));
+                            Thread.sleep(50);
+                        } catch (Exception failure) { return; }
+                    }
+                }, "sample-worker");
+                worker.setDaemon(true);
+                worker.start();
+            }
+            if (new File(getFilesDir(), "block-startup").exists()) {
+                while (true) android.os.SystemClock.sleep(100);
+            }
         } catch (IOException ignored) {
         }
     }
