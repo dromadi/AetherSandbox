@@ -30,6 +30,7 @@ open class ProxyActivity : ComponentActivity() {
     private val terminating = java.util.concurrent.atomic.AtomicBoolean(false)
 
     private var guest: GuestLifecycle? = null
+    private var autoLaunchWhenResumed = false
     private var activityRuntime: GuestActivityRuntime? = null
     private var generalApp: android.app.Application? = null
     @Volatile private var lease: RuntimeLease? = null
@@ -39,7 +40,7 @@ open class ProxyActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        onBackPressedDispatcher.addCallback(this) { finish() }
+        onBackPressedDispatcher.addCallback(this) { finishAndRemoveTask() }
         val loading = TextView(this).apply { text = "Memuat guest…"; gravity = Gravity.CENTER }
         setContentView(loading)
         val repository = SandboxRepository(this)
@@ -48,7 +49,7 @@ open class ProxyActivity : ComponentActivity() {
             loading.text = "Guest gagal dimuat: instance tidak ditentukan"
             return
         }
-        stopReceiver = RuntimeControl.register(this, id) { finish() }
+        stopReceiver = RuntimeControl.register(this, id) { finishAndRemoveTask() }
         loadingJob = lifecycleScope.launch {
             try {
                 val record = withContext(Dispatchers.IO) {
@@ -125,7 +126,15 @@ open class ProxyActivity : ComponentActivity() {
             })
             addView(TextView(this@ProxyActivity).apply { text = report }, LinearLayout.LayoutParams(-1, 0, 1f))
         })
-        bridge.launch()
+        autoLaunchWhenResumed = true
+        launchWhenResumed()
+    }
+
+    private fun launchWhenResumed() {
+        if (autoLaunchWhenResumed && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            autoLaunchWhenResumed = false
+            activityRuntime?.launch()
+        }
     }
 
     private inline fun runtimeFrame(header: String, body: LinearLayout.() -> Unit): LinearLayout =
@@ -137,7 +146,7 @@ open class ProxyActivity : ComponentActivity() {
             })
             addView(Button(this@ProxyActivity).apply {
                 text = "Hentikan guest"
-                setOnClickListener { finish() }
+                setOnClickListener { finishAndRemoveTask() }
             })
             body()
         }
@@ -156,7 +165,7 @@ open class ProxyActivity : ComponentActivity() {
     }
 
     override fun onStart() { super.onStart(); dispatch { it.start() } }
-    override fun onResume() { super.onResume(); dispatch { it.resume() } }
+    override fun onResume() { super.onResume(); dispatch { it.resume() }; window.decorView.post { launchWhenResumed() } }
     override fun onPause() { dispatch { it.pause() }; super.onPause() }
     override fun onStop() { dispatch { it.stop() }; super.onStop() }
 

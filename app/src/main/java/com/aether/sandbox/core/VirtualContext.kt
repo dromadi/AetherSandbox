@@ -42,8 +42,13 @@ class VirtualContext(
     override fun getAssets(): AssetManager = guestResources.assets
     private val guestTheme by lazy { guestResources.newTheme().apply { applyStyle(android.R.style.Theme_Material_Light_NoActionBar, true) } }
     override fun getTheme(): Resources.Theme = guestTheme
-    override fun getSystemService(name: String): Any? = if (name == LAYOUT_INFLATER_SERVICE)
-        android.view.LayoutInflater.from(baseContext).cloneInContext(this) else super.getSystemService(name)
+    override fun getSystemService(name: String): Any? = when (name) {
+        // Autofill validates the component with PackageManager. Guest APKs are not installed;
+        // exposing the host's autofill identity is also incorrect. Explicitly unsupported.
+        AUTOFILL_SERVICE -> null
+        LAYOUT_INFLATER_SERVICE -> android.view.LayoutInflater.from(baseContext).cloneInContext(this)
+        else -> super.getSystemService(name)
+    }
     override fun getFilesDir() = directory("files")
     override fun getCacheDir() = directory("cache")
     override fun getCodeCacheDir() = directory("code_cache")

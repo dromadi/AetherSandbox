@@ -31,12 +31,19 @@ class GuestActivityTest {
         fun launch(id: String, slot: Class<*>) = host.startActivity(Intent(host, slot)
             .putExtra(ProxyActivity.EXTRA_ID, id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         fun appears(text: String) {
-            assertTrue("Missing guest UI '$text': " + device.findObject(By.textStartsWith("Guest gagal"))?.text,
-                device.wait(Until.hasObject(By.text(text)), 15_000))
+            if (!device.wait(Until.hasObject(By.text(text)), 15_000)) {
+                val dump = File(host.cacheDir, "guest-ui-failure.xml")
+                device.dumpWindowHierarchy(dump)
+                val reports = listOf(first.id, second.id).joinToString("\n") { id ->
+                    runCatching { File(repo.directory(id), "runtime-report.json").readText() }.getOrDefault("no report")
+                }
+                fail("Missing guest UI '$text': $reports\n${dump.readText()}")
+            }
         }
         fun click(text: String) {
+            device.waitForIdle()
             val target = device.wait(Until.findObject(By.text(Pattern.compile(Pattern.quote(text), Pattern.CASE_INSENSITIVE))), 5_000)
-            assertNotNull("Missing button: $text", target); target.click()
+            assertNotNull("Missing button: $text", target); target.click(); device.waitForIdle()
         }
         fun account(name: String) {
             appears("Sample account screen")
@@ -57,12 +64,16 @@ class GuestActivityTest {
             appears("Layar kedua akun: alpha")
             device.pressBack()
             appears("Akun contoh: alpha")
+            click("Layar kedua")
+            appears("Layar kedua akun: alpha")
             launch(second.id, ProxyActivity1::class.java)
             appears("Akun contoh: belum masuk")
             account("beta")
             assertTrue(repo.isRunning(first.id)); assertTrue(repo.isRunning(second.id))
             // Move the first task forward without replacing its Activity stack.
             launch(first.id, RuntimeRouterActivity::class.java)
+            appears("Layar kedua akun: alpha")
+            device.pressBack()
             appears("Akun contoh: alpha")
             assertTrue(repo.isRunning(second.id))
             repo.stop(first.id)

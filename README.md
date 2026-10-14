@@ -24,7 +24,7 @@ Versi awal: **0.1.0-alpha.7**. Android 8–16 (minSdk 26, targetSdk 36).
 - APK contoh tetap aplikasi Android biasa, tidak menggunakan GuestEntry/Aether API. Tes menjalankan dua akun contoh lokal berbeda, navigasi/result, pindah task dan persistensi setelah stop/relaunch.
 - Bergantung API internal Android dengan AndroidHiddenApiBypass 6.1 (Apache-2.0), hanya dipasang di proses guest dengan prefix exemption terbatas. Gagal dengan pesan jelas jika hook tidak tersedia. Kompatibilitas OS/vendor harus dibuktikan; belum disiapkan untuk distribusi Play Store.
 
-Batas alpha.7: baru Intent eksplisit dan flag NEW_TASK dasar. Service/Provider/receiver, intent implisit, flag task khusus, Application.startActivity, permission/notifikasi/Google services dan login aplikasi produksi belum divirtualisasi. Dua akun contoh lokal tidak membuktikan WhatsApp/Instagram bekerja. UID tetap sama dengan host.
+Batas alpha.7: baru Intent eksplisit dan flag NEW_TASK dasar. Service/Provider/receiver, intent implisit, flag task khusus, Application.startActivity, autofill, permission/notifikasi/Google services dan login aplikasi produksi belum divirtualisasi. Dua akun contoh lokal tidak membuktikan WhatsApp/Instagram bekerja. UID tetap sama dengan host.
 
 ## Pembaruan alpha.6 — kendali proses dan pengelolaan instance
 

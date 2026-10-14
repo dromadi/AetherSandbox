@@ -86,12 +86,17 @@ class GuestActivityRuntime private constructor(
             activity.setTheme(theme)
         }
         original.callActivityOnCreate(activity, state)
+        if (activity.application === application) {
+            activity.window.decorView.importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+            android.util.Log.d("AetherActivity", "Created ${activity.javaClass.name}")
+        }
     }
 
     // This method overrides a non-SDK virtual entry point at runtime. Keep its exact JVM signature.
     @Suppress("unused")
     fun execStartActivity(who: Context, contextThread: IBinder, token: IBinder?, target: Activity?,
         intent: Intent, requestCode: Int, options: Bundle?): ActivityResult? {
+        android.util.Log.d("AetherActivity", "Navigate ${who.javaClass.name} to ${intent.component}")
         val routed = if (who is Activity && who.application === application) route(intent) else intent
         val method = Instrumentation::class.java.getDeclaredMethod("execStartActivity", Context::class.java,
             IBinder::class.java, IBinder::class.java, Activity::class.java, Intent::class.java,

@@ -22,6 +22,8 @@ public final class SampleActivity extends Activity {
         var save = new Button(this); save.setText("Simpan akun contoh");
         save.setOnClickListener(v -> {
             getSharedPreferences("ui-account", MODE_PRIVATE).edit().putString("user", user.getText().toString()).commit();
+            user.clearFocus();
+            getSystemService(android.view.inputmethod.InputMethodManager.class).hideSoftInputFromWindow(user.getWindowToken(), 0);
             refresh();
         }); layout.addView(save);
         var next = new Button(this); next.setText("Layar kedua");
