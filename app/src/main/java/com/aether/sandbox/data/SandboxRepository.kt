@@ -159,6 +159,7 @@ class SandboxRepository(private val context: Context) {
         find(id)
         // Publish removal first so new launches cannot see a half-deleted instance.
         save(list().filterNot { it.id == id })
+        runCatching { com.aether.sandbox.core.ShortcutGate.revoke(context, id) }
         File(context.applicationInfo.dataDir, "shared_prefs").listFiles().orEmpty()
             .filter { it.name.startsWith("guest_${id}_") && it.name.endsWith(".xml") }
             .forEach { context.deleteSharedPreferences(it.name.removeSuffix(".xml")) }

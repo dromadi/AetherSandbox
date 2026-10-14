@@ -33,6 +33,20 @@ class InstanceManagementTest {
         }
     }
 
+    @Test fun exportedLauncherRejectsForgedShortcut() {
+        val id = java.util.UUID.randomUUID().toString()
+        val valid = com.aether.sandbox.core.ShortcutGate.intent(host, id)
+        try {
+            assertTrue(com.aether.sandbox.core.ShortcutGate.accepts(host, valid))
+            assertFalse(com.aether.sandbox.core.ShortcutGate.accepts(host,
+                Intent(host, MainActivity::class.java).putExtra(ProxyActivity.EXTRA_ID, id)))
+            assertFalse(com.aether.sandbox.core.ShortcutGate.accepts(host,
+                Intent(valid).putExtra("aether_shortcut_token", "forged")))
+            com.aether.sandbox.core.ShortcutGate.revoke(host, id)
+            assertFalse(com.aether.sandbox.core.ShortcutGate.accepts(host, valid))
+        } finally { com.aether.sandbox.core.ShortcutGate.revoke(host, id) }
+    }
+
     @Test fun duplicateStartsCleanAndResetPreservesApkAndProfile() {
         val repo = SandboxRepository(host)
         val a = sample(repo)

@@ -37,8 +37,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         intent.getStringExtra(ProxyActivity.EXTRA_ID)?.let { id ->
-            startActivity(Intent(this, com.aether.sandbox.core.RuntimeRouterActivity::class.java)
-                .putExtra(ProxyActivity.EXTRA_ID, id))
+            if (com.aether.sandbox.core.ShortcutGate.accepts(this, intent)) {
+                startActivity(Intent(this, com.aether.sandbox.core.RuntimeRouterActivity::class.java)
+                    .putExtra(ProxyActivity.EXTRA_ID, id))
+            } else android.widget.Toast.makeText(this, "Shortcut tidak valid", android.widget.Toast.LENGTH_LONG).show()
             finish()
             return
         }
@@ -173,8 +175,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                                     val shortcut = android.content.pm.ShortcutInfo.Builder(context, record.id)
                                         .setShortLabel(record.instanceName.take(30))
                                         .setIcon(android.graphics.drawable.Icon.createWithResource(context, R.drawable.ic_aether))
-                                        .setIntent(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
-                                            .putExtra(ProxyActivity.EXTRA_ID, record.id)).build()
+                                        .setIntent(com.aether.sandbox.core.ShortcutGate.intent(context, record.id)).build()
                                     if (manager.requestPinShortcut(shortcut, null)) model.message("Permintaan shortcut dikirim ke launcher")
                                     else model.message("Shortcut tidak dapat dibuat")
                                 }
