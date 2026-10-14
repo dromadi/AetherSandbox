@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:label="@string/sample_label" android:name=".SampleApplication">
+        <activity android:name=".SampleCameraActivity" android:exported="false" />
         <activity android:name=".SampleSecondActivity" android:exported="false" />
         <activity android:name=".SampleActivity" android:exported="true">
         </activity>

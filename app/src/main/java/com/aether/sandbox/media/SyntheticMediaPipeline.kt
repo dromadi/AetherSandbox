@@ -18,6 +18,7 @@ class SyntheticMediaPipeline(
     private val uri: Uri,
     private val surface: Surface,
     private val onStatus: (String) -> Unit,
+    private val ownsSurface: Boolean = true,
 ) : AutoCloseable {
     private val running = AtomicBoolean(true)
     private val playing = AtomicBoolean(true)
@@ -31,7 +32,13 @@ class SyntheticMediaPipeline(
         return next
     }
     fun seekToStart() { requestedSeekUs.set(0) }
-    override fun close() { running.set(false); thread.interrupt() }
+    override fun close() {
+        running.set(false)
+        thread.interrupt()
+        if (Thread.currentThread() !== thread) {
+            try { thread.join(2000) } catch (_: InterruptedException) { Thread.currentThread().interrupt() }
+        }
+    }
 
     private fun status(message: String) {
         main.post { if (running.get()) onStatus(message) }
@@ -114,7 +121,7 @@ class SyntheticMediaPipeline(
             if (started) runCatching { decoder?.stop() }
             runCatching { decoder?.release() }
             runCatching { extractor.release() }
-            surface.release()
+            if (ownsSurface) surface.release()
         }
     }
 

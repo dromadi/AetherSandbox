@@ -30,6 +30,9 @@ public final class SampleActivity extends Activity {
         var next = new Button(this); next.setText("Layar kedua");
         next.setOnClickListener(v -> startActivityForResult(new Intent(this, SampleSecondActivity.class), 41));
         layout.addView(next);
+        var camera = new Button(this); camera.setText("Kamera Camera2");
+        camera.setOnClickListener(v -> startActivity(new Intent(this, SampleCameraActivity.class)));
+        layout.addView(camera);
         var result = new TextView(this); result.setText("Hasil: belum ada"); result.setTag("result"); layout.addView(result);
         if (SampleNetworkSession.configured(this)) {
             var online = new TextView(this); online.setText("Sesi server: memuat"); layout.addView(online);

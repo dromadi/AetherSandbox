@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -62,6 +63,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
     var renaming by remember { mutableStateOf<SandboxRecord?>(null) }
     var newName by remember { mutableStateOf("") }
     var launching by remember { mutableStateOf<SandboxRecord?>(null) }
+    var videoCameraEnabled by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<SandboxRecord?>(null) }
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::importApk) }
     val video = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::chooseVideo) }
@@ -69,7 +71,8 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
     fun launchGuest(record: SandboxRecord) {
         context.startActivity(Intent(context, com.aether.sandbox.core.RuntimeRouterActivity::class.java)
             .putExtra(ProxyActivity.EXTRA_ID, record.id)
-            .putExtra(ProxyActivity.EXTRA_CAMERA_URI, state.video?.toString()))
+            .putExtra(ProxyActivity.EXTRA_CAMERA_URI, state.video?.toString())
+            .putExtra(ProxyActivity.EXTRA_CAMERA2_VIDEO, videoCameraEnabled && state.video != null))
     }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val abi = remember { runCatching { NativeDiagnostics.abi() }.getOrDefault("native library unavailable") }
@@ -122,6 +125,12 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                                 }
                             }) { Text("Panel") }
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(checked = videoCameraEnabled, enabled = state.video != null,
+                                onCheckedChange = { videoCameraEnabled = it })
+                            Text("Gunakan video untuk Camera2 (eksperimental)")
+                        }
+                        if (videoCameraEnabled) Text("Berlaku saat guest dimulai ulang. Preview dan encoder Surface saja; kompatibilitas aplikasi video call belum terbukti.")
                         state.video?.let { VideoPreview(it) }
                     }
                 }

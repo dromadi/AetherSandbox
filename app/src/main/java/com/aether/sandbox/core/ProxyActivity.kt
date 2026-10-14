@@ -37,6 +37,7 @@ open class ProxyActivity : ComponentActivity() {
     @Volatile private var lease: RuntimeLease? = null
     private var loadingJob: Job? = null
     private var stopReceiver: BroadcastReceiver? = null
+    private var cameraBridge: com.aether.sandbox.media.Camera2VideoBridge? = null
     private var camera: VideoCameraSource? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -101,6 +102,11 @@ open class ProxyActivity : ComponentActivity() {
         val activities = withContext(Dispatchers.IO) { repository.activityRegistry(record) }
         val bridge = GuestActivityRuntime.install(this, record, prepared, activities)
         activityRuntime = bridge
+        if (intent.getBooleanExtra(EXTRA_CAMERA2_VIDEO, false)) {
+            val video = requireNotNull(intent.getStringExtra(EXTRA_CAMERA_URI)) { "Pilih video untuk Camera2" }
+            cameraBridge = com.aether.sandbox.media.Camera2VideoBridge.install(applicationContext, video.toUri())
+            journal?.record("CAMERA2_VIDEO_READY", "Synthetic Surface camera; physical camera is not opened")
+        }
         val loaded = GeneralGuestLoader.start(prepared)
         bridge.attachApplication(loaded.application)
         generalApp = loaded.application
@@ -181,6 +187,8 @@ open class ProxyActivity : ComponentActivity() {
         generalApp = null
         runCatching { app?.onTerminate() }.onFailure { Log.e("AetherRuntime", "Guest terminate failed", it) }
         // After the guest's own onDestroy, so a guest that stops its camera there wins the race.
+        cameraBridge?.close()
+        cameraBridge = null
         camera?.close()
         camera = null
     }
@@ -223,5 +231,6 @@ open class ProxyActivity : ComponentActivity() {
         const val EXTRA_ID = "sandbox_id"
         /** Optional video URI offered to guests through VirtualCamera. */
         const val EXTRA_CAMERA_URI = "camera_uri"
+        const val EXTRA_CAMERA2_VIDEO = "camera2_video"
     }
 }
