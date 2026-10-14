@@ -92,12 +92,15 @@ public final class SampleCameraActivity extends Activity implements TextureView.
         running = true;
         drain = new Thread(() -> {
             var info = new MediaCodec.BufferInfo();
-            int frames = 0; long bytes = 0;
+            int frames = 0; long bytes = 0; long previousTimestamp = -1;
             try {
                 while (running) {
                     int index = encoder.dequeueOutputBuffer(info, 10000);
                     if (index < 0) continue;
                     if (info.size > 0 && (info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0) {
+                        if (info.presentationTimeUs <= previousTimestamp)
+                            throw new IllegalStateException("Encoder timestamps must remain monotonic across video loops");
+                        previousTimestamp = info.presentationTimeUs;
                         frames++; bytes += info.size;
                         Files.write(new File(getFilesDir(), "camera2-encoded.txt").toPath(),
                             (frames + ":" + bytes).getBytes(StandardCharsets.UTF_8));
