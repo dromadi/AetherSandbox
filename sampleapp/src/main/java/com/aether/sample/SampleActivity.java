@@ -15,7 +15,8 @@ public final class SampleActivity extends Activity {
         super.onCreate(state);
         var layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(24, 48, 24, 24);
+        int padding = Math.round(24 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding * 2, padding, padding);
         var title = new TextView(this); title.setText("Sample account screen"); layout.addView(title);
         var user = new EditText(this); user.setHint("Nama akun contoh"); layout.addView(user);
         status = new TextView(this); layout.addView(status);

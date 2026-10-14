@@ -11,7 +11,8 @@ public final class SampleSecondActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         var layout = new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(24, 48, 24, 24);
+        int padding = Math.round(24 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding * 2, padding, padding);
         var text = new TextView(this);
         text.setText("Layar kedua akun: " + getSharedPreferences("ui-account", MODE_PRIVATE).getString("user", "belum masuk"));
         layout.addView(text);
