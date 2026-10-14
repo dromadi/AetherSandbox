@@ -45,7 +45,7 @@ class VirtualContext(
     override fun getSystemService(name: String): Any? = when (name) {
         // Autofill validates the component with PackageManager. Guest APKs are not installed;
         // exposing the host's autofill identity is also incorrect. Explicitly unsupported.
-        AUTOFILL_SERVICE -> null
+        Context.AUTOFILL_MANAGER_SERVICE -> null
         LAYOUT_INFLATER_SERVICE -> android.view.LayoutInflater.from(baseContext).cloneInContext(this)
         else -> super.getSystemService(name)
     }
