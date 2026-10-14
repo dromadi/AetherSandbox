@@ -74,3 +74,9 @@ Build lokal tidak dapat dimulai: Gradle 8.13 belum tersedia dan unduhan distribu
 Pengujian baru: native ABI selection / incompatible ABI / Java-only / traversal, Application main thread, launcher alias yang berbeda dari Activity pertama, reset/duplikasi/persistensi profil, dua worker dalam proses berbeda dan penghentian salah satunya, serta fallback stop ketika startup memblokir main thread. Hasil aktual harus dilihat pada CI PR alpha.6; status pengujian versi sebelumnya tidak otomatis berlaku.
 
 Belum diuji: HP fisik ARM64, shortcut pada launcher vendor, native library produksi, login akun, Activity/Service/Provider guest, seluruh benchmark kompetitor.
+
+## Alpha.7 — Activity proxy
+
+Validasi baru diperlukan pada API 26/34/36: UI APK umum tanpa GuestEntry, resource/theme per guest, Intent ke Activity kedua, startActivityForResult, Back, dua sesi contoh lokal independen, pemindahan task dan stop/relaunch. Belum ada klaim lulus sebelum CI selesai. Library AndroidHiddenApiBypass dipin 6.1 dan non-SDK signature dipertahankan pada R8.
+
+Belum dibuktikan: HP fisik ARM64/vendor, AppCompat/Compose guest, akun jaringan, Play services, Service/Provider, intent implisit/flag task khusus dan keamanan isolasi.

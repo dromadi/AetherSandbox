@@ -19,6 +19,10 @@
         <activity android:name=".core.ProxyActivity1" android:exported="false" android:process=":virtual_process1" android:launchMode="singleTask" android:taskAffinity="com.aether.sandbox.slot1" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode" />
         <activity android:name=".core.ProxyActivity2" android:exported="false" android:process=":virtual_process2" android:launchMode="singleTask" android:taskAffinity="com.aether.sandbox.slot2" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode" />
         <activity android:name=".core.ProxyActivity3" android:exported="false" android:process=":virtual_process3" android:launchMode="singleTask" android:taskAffinity="com.aether.sandbox.slot3" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode" />
+        <activity android:name=".core.GuestStubActivity" android:exported="false" android:process=":virtual_process" android:taskAffinity="com.aether.sandbox.slot0" />
+        <activity android:name=".core.GuestStubActivity1" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
+        <activity android:name=".core.GuestStubActivity2" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
+        <activity android:name=".core.GuestStubActivity3" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
         <activity android:name=".core.RuntimeRouterActivity" android:exported="false" />
         <service android:name=".media.FloatingAssistantService" android:exported="false"
             android:foregroundServiceType="mediaPlayback" />

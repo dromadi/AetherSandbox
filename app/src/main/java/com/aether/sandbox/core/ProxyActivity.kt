@@ -30,6 +30,7 @@ open class ProxyActivity : ComponentActivity() {
     private val terminating = java.util.concurrent.atomic.AtomicBoolean(false)
 
     private var guest: GuestLifecycle? = null
+    private var activityRuntime: GuestActivityRuntime? = null
     private var generalApp: android.app.Application? = null
     @Volatile private var lease: RuntimeLease? = null
     private var loadingJob: Job? = null
@@ -95,7 +96,11 @@ open class ProxyActivity : ComponentActivity() {
 
     private suspend fun loadGeneralApp(repository: SandboxRepository, record: com.aether.sandbox.data.SandboxRecord) {
         val prepared = withContext(Dispatchers.IO) { GeneralGuestLoader.prepare(this@ProxyActivity, record, repository) }
+        val activities = withContext(Dispatchers.IO) { repository.activityRegistry(record) }
+        val bridge = GuestActivityRuntime.install(this, record, prepared, activities)
+        activityRuntime = bridge
         val loaded = GeneralGuestLoader.start(prepared)
+        bridge.attachApplication(loaded.application)
         generalApp = loaded.application
         val c = loaded.components
         val report = buildString {
@@ -108,11 +113,19 @@ open class ProxyActivity : ComponentActivity() {
             append("• Activity: ${c.activities.size}   • Service: ${c.services.size}\n")
             append("• Provider: ${c.providers.size}   • Receiver: ${c.receivers.size}\n")
             append("Launcher: ${c.launcher ?: "tidak ada"}\n\n")
-            append("Milestone 1–2a: Application.onCreate() guest berjalan dan komponen sudah diinventarisasi. Menjalankan Activity/Service/Provider guest belum didukung (perlu intersepsi ActivityManager/Binder).")
+            append("Activity guest memakai proxy Android (eksperimental). Service, Provider, intent implisit, dan flag task khusus belum didukung.")
         }
         setContentView(runtimeFrame("Aether runtime • aplikasi umum") {
+            addView(Button(this@ProxyActivity).apply {
+                text = "Buka layar aplikasi"
+                isEnabled = prepared.components.launcher != null
+                setOnClickListener { runCatching { bridge.launch() }.onFailure {
+                    android.widget.Toast.makeText(this@ProxyActivity, it.message, android.widget.Toast.LENGTH_LONG).show()
+                } }
+            })
             addView(TextView(this@ProxyActivity).apply { text = report }, LinearLayout.LayoutParams(-1, 0, 1f))
         })
+        bridge.launch()
     }
 
     private inline fun runtimeFrame(header: String, body: LinearLayout.() -> Unit): LinearLayout =

@@ -23,6 +23,7 @@ class VirtualContext(
     private val guestResources: Resources,
     private val guestApplicationInfo: ApplicationInfo? = null,
 ) : ContextWrapper(host) {
+    fun forActivity(host: Context) = VirtualContext(host, guestRoot, guestPackage, instanceId, loader, guestResources, guestApplicationInfo)
     /** The guest Application once instantiated; it becomes this context's applicationContext. */
     var application: Application? = null
     private fun directory(name: String) = SandboxPaths.resolve(guestRoot, name).apply {

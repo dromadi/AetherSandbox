@@ -22,11 +22,15 @@ class RuntimeRouterActivity : ComponentActivity() {
                 val slot = withContext(Dispatchers.IO) {
                     val repo = SandboxRepository(this@RuntimeRouterActivity)
                     repo.find(id)
-                    check(!repo.isRunning(id)) { "Instance sudah berjalan" }
-                    RuntimeSlots.free(this@RuntimeRouterActivity)
+                    if (repo.isRunning(id)) -1 else RuntimeSlots.free(this@RuntimeRouterActivity)
                         ?: error("Empat slot sedang digunakan. Hentikan salah satu guest.")
                 }
-                startActivity(Intent(this@RuntimeRouterActivity, RuntimeSlots.activities[slot])
+                if (slot == -1) {
+                    val manager = getSystemService(android.app.ActivityManager::class.java)
+                    val task = manager.appTasks.firstOrNull { it.taskInfo.baseIntent.getStringExtra(ProxyActivity.EXTRA_ID) == id }
+                        ?: error("Task guest tidak tersedia; hentikan lalu jalankan ulang")
+                    task.moveToFront()
+                } else startActivity(Intent(this@RuntimeRouterActivity, RuntimeSlots.activities[slot])
                     .putExtra(ProxyActivity.EXTRA_ID, id)
                     .putExtra(ProxyActivity.EXTRA_CAMERA_URI, intent.getStringExtra(ProxyActivity.EXTRA_CAMERA_URI))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

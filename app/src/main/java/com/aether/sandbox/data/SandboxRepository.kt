@@ -207,7 +207,7 @@ class SandboxRepository(private val context: Context) {
             appendLine("Berjalan: ${isRunning(id)}")
             appendLine("Launcher: ${components.launcher ?: "tidak tersedia"}")
             appendLine("Activity=${components.activities.size}; Service=${components.services.size}; Provider=${components.providers.size}; Receiver=${components.receivers.size}")
-            appendLine("Runtime umum: Application saja; Activity/Service/Provider belum dieksekusi.")
+            appendLine("Runtime umum: Activity proxy eksperimental; Service/Provider belum dieksekusi.")
             appendLine("Guest memakai UID host; bukan isolasi keamanan.")
             if (report.exists() && report.length() <= 32_768) appendLine(report.readText())
         }
@@ -237,6 +237,11 @@ class SandboxRepository(private val context: Context) {
         val info = archiveInfo(file, PackageManager.GET_ACTIVITIES)
         info.applicationInfo?.apply { sourceDir = file.path; publicSourceDir = file.path }
         return info
+    }
+
+    fun activityRegistry(record: SandboxRecord): Map<String, android.content.pm.ActivityInfo> {
+        val info = archiveInfo(apk(record), PackageManager.GET_ACTIVITIES)
+        return info.activities.orEmpty().associateBy { it.name }
     }
 
     /**
