@@ -80,3 +80,9 @@ Belum diuji: HP fisik ARM64, shortcut pada launcher vendor, native library produ
 Validasi baru diperlukan pada API 26/34/36: UI APK umum tanpa GuestEntry, resource/theme per guest, Intent ke Activity kedua, startActivityForResult, Back, dua sesi contoh lokal independen, pemindahan task dan stop/relaunch. Belum ada klaim lulus sebelum CI selesai. Library AndroidHiddenApiBypass dipin 6.1 dan non-SDK signature dipertahankan pada R8.
 
 Belum dibuktikan: HP fisik ARM64/vendor, AppCompat/Compose guest, akun jaringan, Play services, Service/Provider, intent implisit/flag task khusus dan keamanan isolasi.
+
+## Alpha.8 — jaringan dan startup Provider
+
+Tes baru: Provider main thread sebelum Application.onCreate, context Application guest, penyimpanan Provider hanya pada instance terkait; dua sesi HTTP dengan token server berbeda dan persistensi setelah stop/relaunch kedua proses.
+
+Build lokal belum dapat berjalan: unduhan Gradle 8.13 tidak terjangkau dari lingkungan ini. Hasil aktual build/lint/R8 dan emulator API 26/34/36 harus diperiksa pada CI PR alpha.8. Belum diuji HP fisik, HTTPS eksternal, aplikasi produksi, ContentResolver, Service/receiver atau notifikasi guest.

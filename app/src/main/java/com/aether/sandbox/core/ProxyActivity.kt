@@ -32,6 +32,7 @@ open class ProxyActivity : ComponentActivity() {
     private var guest: GuestLifecycle? = null
     private var autoLaunchWhenResumed = false
     private var activityRuntime: GuestActivityRuntime? = null
+    private var providers: List<android.content.ContentProvider> = emptyList()
     private var generalApp: android.app.Application? = null
     @Volatile private var lease: RuntimeLease? = null
     private var loadingJob: Job? = null
@@ -103,6 +104,7 @@ open class ProxyActivity : ComponentActivity() {
         val loaded = GeneralGuestLoader.start(prepared)
         bridge.attachApplication(loaded.application)
         generalApp = loaded.application
+        providers = loaded.providers
         val c = loaded.components
         val report = buildString {
             append("Kode dan resource guest dimuat di direktori per instance (UID host sama).\n\n")
@@ -114,7 +116,7 @@ open class ProxyActivity : ComponentActivity() {
             append("• Activity: ${c.activities.size}   • Service: ${c.services.size}\n")
             append("• Provider: ${c.providers.size}   • Receiver: ${c.receivers.size}\n")
             append("Launcher: ${c.launcher ?: "tidak ada"}\n\n")
-            append("Activity guest memakai proxy Android (eksperimental). Service, Provider, intent implisit, dan flag task khusus belum didukung.")
+            append("Activity guest memakai proxy Android (eksperimental). Service, resolver Provider, intent implisit, dan flag task khusus belum didukung.")
         }
         setContentView(runtimeFrame("Aether runtime • aplikasi umum") {
             addView(Button(this@ProxyActivity).apply {
@@ -173,6 +175,8 @@ open class ProxyActivity : ComponentActivity() {
         val current = guest
         guest = null
         runCatching { current?.close() }.onFailure { Log.e("AetherRuntime", "Guest cleanup failed", it) }
+        providers.asReversed().forEach { runCatching { it.shutdown() }.onFailure { Log.e("AetherRuntime", "Provider cleanup failed", it) } }
+        providers = emptyList()
         val app = generalApp
         generalApp = null
         runCatching { app?.onTerminate() }.onFailure { Log.e("AetherRuntime", "Guest terminate failed", it) }
