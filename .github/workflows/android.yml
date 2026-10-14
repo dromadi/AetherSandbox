@@ -28,11 +28,11 @@ jobs:
       - name: SDK and native toolchain
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
       - name: Tests, lint, debug and release build
-        run: ./gradlew :domain:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :fixture:assembleDebug :app:assembleDebugAndroidTest --no-daemon
+        run: ./gradlew :domain:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :fixture:assembleDebug :sampleapp:assembleDebug :app:assembleDebugAndroidTest --no-daemon
       - name: APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: AetherSandbox-0.1.0-alpha.4
+          name: AetherSandbox-0.1.0-alpha.5
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk

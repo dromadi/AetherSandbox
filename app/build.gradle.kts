@@ -11,8 +11,8 @@ android {
         applicationId = "com.aether.sandbox"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.1.0-alpha.4"
+        versionCode = 5
+        versionName = "0.1.0-alpha.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         externalNativeBuild { cmake { cppFlags += "-std=c++20" } }
@@ -30,10 +30,10 @@ android {
     sourceSets.getByName("androidTest").assets.srcDir(layout.buildDirectory.dir("generated/fixtureAssets"))
 }
 val prepareFixture by tasks.registering(Copy::class) {
-    dependsOn(":fixture:assembleDebug")
-    from(project(":fixture").layout.buildDirectory.file("outputs/apk/debug/fixture-debug.apk"))
+    dependsOn(":fixture:assembleDebug", ":sampleapp:assembleDebug")
+    from(project(":fixture").layout.buildDirectory.file("outputs/apk/debug/fixture-debug.apk")) { rename { "fixture.apk" } }
+    from(project(":sampleapp").layout.buildDirectory.file("outputs/apk/debug/sampleapp-debug.apk")) { rename { "sampleapp.apk" } }
     into(layout.buildDirectory.dir("generated/fixtureAssets"))
-    rename { "fixture.apk" }
 }
 tasks.matching { it.name in setOf(
     "mergeDebugAndroidTestAssets", "lintAnalyzeDebugAndroidTest", "generateDebugAndroidTestLintModel",

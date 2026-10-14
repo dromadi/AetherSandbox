@@ -37,6 +37,14 @@ Canonical path validation menolak traversal, absolute paths, dan symlink yang ke
 
 `RuntimeLease` memakai exclusive FileChannel lock di `files/runtime-locks/<uuid>.lock`. Runtime mengambil lease sebelum membaca indeks dan melepasnya setelah teardown guest. Repository mengambil lease yang sama sebelum menghapus instance atau mengganti profil. Lock file tidak dihapus agar inode lock tetap stabil; OS melepas lease jika proses mati. Saat loading dibatalkan, lease baru dilepas setelah job IO selesai. Ini koordinasi kooperatif, bukan isolasi keamanan.
 
+## Runtime aplikasi umum alpha.5 (milestone 1)
+
+`GeneralGuestLoader.load` dipakai untuk APK non-fixture. `SandboxRepository.verifyIntegrity` me-rehash APK (tanpa syarat sertifikat fixture) dan mengembalikan `PackageInfo` dengan daftar Activity. Classloader guest adalah `DexClassLoader` dengan parent boot classloader, sehingga kelas aplikasi host tidak bocor ke guest dan library guest menang atas host. Resource dimuat via `getResourcesForApplication`.
+
+`Application` guest (`applicationInfo.className`, atau `android.app.Application` bila kosong) diinstansiasi, di-`attachBaseContext` ke `VirtualContext` instance lewat refleksi, lalu `onCreate()` dipanggil. `VirtualContext.getApplicationContext()` mengembalikan Application tersebut dan `getApplicationInfo()` mengembalikan info guest.
+
+Batas tegas milestone 1: tidak ada eksekusi Activity/Service/Provider/Broadcast guest, tidak ada intersepsi ActivityManager/PackageManager/Binder, dan tidak ada emulasi hidden API. Guest berbagi UID host; ini virtualisasi kooperatif, bukan batas keamanan. Hidden API dan proxy komponen direncanakan untuk milestone berikutnya.
+
 ## Kontrol runtime alpha.3
 
 `RuntimeLease.isHeld` menjadi registry status: host mencoba mengambil lease lalu langsung melepasnya. Karena sumbernya lock OS, status otomatis kembali "berhenti" ketika proses guest mati. Probe sesaat memegang lease yang kosong, sehingga `ProxyActivity` mengambil lease di thread IO dengan retry 1 detik.

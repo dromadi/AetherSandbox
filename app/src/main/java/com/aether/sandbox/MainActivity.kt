@@ -65,16 +65,16 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
             contentPadding = PaddingValues(vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("AetherSandbox", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("VirtuBox Core • 0.1.0-alpha.4", color = MaterialTheme.colorScheme.secondary)
+                Text("VirtuBox Core • 0.1.0-alpha.5", color = MaterialTheme.colorScheme.secondary)
             }
             item {
                 Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Laboratorium Android", style = MaterialTheme.typography.titleLarge)
-                        Text("Impor APK, kelola instance, dan jalankan fixture QA dengan data terpisah.")
+                        Text("Impor APK, kelola instance, jalankan fixture penuh atau muat aplikasi umum dengan data terpisah.")
                         Text("Android ${Build.VERSION.RELEASE} • $abi • ${state.records.size} instance • ${state.running.size} berjalan",
                             style = MaterialTheme.typography.bodySmall)
-                        Text("Runtime aplikasi umum belum tersedia. Kamera virtual hanya untuk fixture yang opt-in.", color = MaterialTheme.colorScheme.secondary,
+                        Text("Aplikasi umum: kode dan Application berjalan (milestone 1). Kamera virtual untuk fixture opt-in.", color = MaterialTheme.colorScheme.secondary,
                             style = MaterialTheme.typography.bodySmall)
                         Button(enabled = !state.busy, onClick = { import.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream")) }) {
                             Text("Impor APK")
@@ -129,16 +129,17 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                         Text("${record.bytes / 1024 / 1024} MB • Instance ${record.id.take(8)}", style = MaterialTheme.typography.bodySmall)
                         Text("Test ID: ${record.testAndroidId}", style = MaterialTheme.typography.bodySmall)
                         Text("SHA-256: ${record.sha256.take(16)}…", style = MaterialTheme.typography.bodySmall)
-                        Text(if (record.trustedFixture) "Fixture kompatibel" else "Metadata tersimpan; runtime belum kompatibel",
+                        Text(if (record.trustedFixture) "Fixture kompatibel: UI penuh + kamera virtual"
+                            else "Aplikasi umum: kode + resource + Application (milestone 1)",
                             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (running) {
                                 Button(enabled = !state.busy, onClick = { model.stop(record.id) }) { Text("Hentikan") }
                             } else {
-                                Button(enabled = record.trustedFixture && !state.busy, onClick = {
+                                Button(enabled = !state.busy, onClick = {
                                     context.startActivity(Intent(context, ProxyActivity::class.java)
                                         .putExtra(ProxyActivity.EXTRA_ID, record.id)
-                                        // The selected test video becomes the guest's virtual camera.
+                                        // The selected test video becomes a fixture's virtual camera.
                                         .putExtra(ProxyActivity.EXTRA_CAMERA_URI, state.video?.toString()))
                                 }) { Text("Jalankan") }
                             }

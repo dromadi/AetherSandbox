@@ -53,3 +53,16 @@ Tanggal: 2026-10-14.
 | assembleDebug / assembleRelease (R8, API guest dipertahankan) / fixture / assembleDebugAndroidTest | Lulus; `camera-test.mp4` (160x120, 30 frame H.264) dibundel di APK test |
 | `VirtualCameraTest` (2 run identik, stop dari listener, sidik fixture end-to-end) | Belum dijalankan lokal (tidak ada KVM); lihat workflow device tests |
 | Determinisme pada HP fisik / decoder hardware | Belum diuji |
+
+## Alpha.5 — runtime aplikasi umum (milestone 1)
+
+Tanggal: 2026-10-14.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Unit test domain | 19 test lulus |
+| app:testDebugUnitTest | 3 test lulus |
+| app:lintDebug | 0 error, 32 warning |
+| assembleDebug / assembleRelease (R8) / fixture / sampleapp / assembleDebugAndroidTest | Lulus; `fixture.apk` dan `sampleapp.apk` dibundel di APK test |
+| `GeneralGuestTest` (sampleapp: resource guest, `Application.onCreate`, storage terpisah) | Belum dijalankan lokal (tidak ada KVM); lihat workflow device tests |
+| Eksekusi Activity/Service guest | Tidak ada; di luar lingkup milestone 1 |

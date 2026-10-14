@@ -141,23 +141,38 @@ class SandboxRepository(private val context: Context) {
     }
 
     fun verifyFixture(record: SandboxRecord): PackageInfo {
-        val file = apk(record)
-        val sink = object : java.io.OutputStream() {
-            override fun write(value: Int) = Unit
-            override fun write(buffer: ByteArray, offset: Int, length: Int) = Unit
-        }
-        val hash = file.inputStream().use { BoundedCopy.copyAndHash(it, sink, MAX_APK_BYTES) }
-        check(hash == record.sha256) { "Integritas APK berubah. Impor ulang fixture." }
-        val info = archiveInfo(file)
+        val info = verifyIntegrity(record)
         check(info.packageName == FIXTURE_PACKAGE && signerMatchesHost(info)
             && info.applicationInfo?.metaData?.getString(ENTRY_META) == record.entryClass
             && record.entryClass != null) { "Hanya fixture bertanda tangan sama dengan host yang dapat dijalankan" }
         return info
     }
 
+    /**
+     * Re-hashes the stored APK and returns its metadata. Confirms the file has not changed since
+     * import; it does NOT establish trust. A general guest runs with the host UID, so its code can
+     * read every instance's data and the host's own data. This is not a security boundary.
+     */
+    fun verifyIntegrity(record: SandboxRecord): PackageInfo {
+        val file = apk(record)
+        val sink = object : java.io.OutputStream() {
+            override fun write(value: Int) = Unit
+            override fun write(buffer: ByteArray, offset: Int, length: Int) = Unit
+        }
+        val hash = file.inputStream().use { BoundedCopy.copyAndHash(it, sink, MAX_APK_BYTES) }
+        check(hash == record.sha256) { "Integritas APK berubah. Impor ulang APK." }
+        val info = archiveInfo(file, PackageManager.GET_ACTIVITIES)
+        info.applicationInfo?.apply { sourceDir = file.path; publicSourceDir = file.path }
+        return info
+    }
+
+    /** Package name of the activity declared as the app's launcher, if the archive exposes one. */
+    fun launcherActivity(info: PackageInfo): String? =
+        info.activities?.firstOrNull()?.name
+
     @Suppress("DEPRECATION")
-    private fun archiveInfo(file: File): PackageInfo {
-        val flags = PackageManager.GET_META_DATA or if (Build.VERSION.SDK_INT >= 28)
+    private fun archiveInfo(file: File, extra: Int = 0): PackageInfo {
+        val flags = PackageManager.GET_META_DATA or extra or if (Build.VERSION.SDK_INT >= 28)
             PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
         return context.packageManager.getPackageArchiveInfo(file.path, flags)
             ?: throw IOException("APK tidak valid atau tidak kompatibel")

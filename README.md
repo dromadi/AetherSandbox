@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.4**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.5**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -24,6 +24,14 @@ Versi awal: **0.1.0-alpha.4**. Android 8–16 (minSdk 26, targetSdk 36).
 - Lease tetap dipegang sampai pemuatan IO selesai jika Activity ditutup saat loading.
 - Unit test lease/lifecycle dan pengujian perangkat untuk mutasi yang ditolak saat guest berjalan.
 
+## Pembaruan alpha.5 — runtime aplikasi umum (milestone 1)
+
+- APK pihak ketiga (bukan fixture) kini dapat **dimuat dan dijalankan**, bukan hanya dibaca metadatanya. Tombol **Jalankan** aktif untuk semua APK.
+- `GeneralGuestLoader` memuat kelas dan resource guest lewat classloader terpisah (parent = boot classloader, sehingga kelas host tidak terlihat), lalu menginstansiasi dan menjalankan `Application.onCreate()` guest di atas `VirtualContext` per instance.
+- File, database, dan preferensi guest diarahkan ke penyimpanan instance. Modul contoh `sampleapp` membuktikan `Application.onCreate` berjalan dan datanya terpisah antar instance.
+- **Peringatan keamanan:** guest berjalan dengan UID host. Kode APK yang dijalankan dapat membaca data semua instance dan data host. Ini virtualisasi kooperatif, **bukan** sandbox keamanan. Jangan jalankan APK yang tidak Anda percayai.
+- **Batas milestone 1:** Activity, Service, Provider, dan Broadcast milik guest **belum** dijalankan. Itu butuh intersepsi ActivityManager/Binder dan menjadi milestone berikutnya.
+
 ## Pembaruan alpha.4 — kamera virtual deterministik (opt-in)
 
 - Kontrak baru `VirtualCamera` dan `VirtualCameraFrame` di `guest-api`. Guest yang mengimplementasikan `GuestEntry.onVirtualCamera` menerima video uji yang dipilih di host sebagai input kamera.
@@ -41,11 +49,11 @@ Versi awal: **0.1.0-alpha.4**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Batas alpha ini
 
-APK umum dapat diimpor dan ditampilkan metadatanya, tetapi **belum dapat dijalankan sebagai aplikasi Android penuh**. APK fixture menerapkan kontrak `GuestEntry`, bukan Activity/Service pihak ketiga yang tidak dimodifikasi.
+APK umum kini dimuat dan menjalankan `Application.onCreate()`-nya (alpha.5, milestone 1), tetapi **belum dapat menjalankan Activity/Service/Provider pihak ketiga** — itu butuh intersepsi ActivityManager/Binder. APK fixture tetap mendapat jalur UI penuh melalui kontrak `GuestEntry`.
 
 `VirtualContext` mengarahkan operasi file dan SQLite yang dipanggil melalui context tersebut. SharedPreferences menggunakan namespace per instance di penyimpanan host. Pemanggilan filesystem langsung, JNI, Binder, PackageManager, dan framework singleton belum divirtualisasi.
 
-Proses guest memakai UID host yang sama. Pemisahan proses/namespace ini **bukan isolasi keamanan untuk menjalankan malware**. APK tak tepercaya hanya dibaca, tidak dieksekusi.
+Proses guest memakai UID host yang sama. Pemisahan proses/namespace ini **bukan isolasi keamanan untuk menjalankan malware**. Sejak alpha.5 APK umum dieksekusi kodenya; kode itu berjalan dengan UID host dan dapat membaca data instance lain dan data host. Jalankan hanya APK yang Anda percayai.
 
 Profil mengandung nilai sintetis yang diberikan secara eksplisit kepada fixture. Alpha ini belum mengganti ANDROID_ID sistem, IMEI, MAC, atau `android.os.Build`.
 
