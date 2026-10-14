@@ -250,6 +250,9 @@ class SandboxRepository(private val context: Context) {
         return info
     }
 
+    fun providerRegistry(record: SandboxRecord): List<android.content.pm.ProviderInfo> =
+        archiveInfo(apk(record), PackageManager.GET_PROVIDERS).providers.orEmpty().toList()
+
     fun activityRegistry(record: SandboxRecord): Map<String, android.content.pm.ActivityInfo> {
         val info = archiveInfo(apk(record), PackageManager.GET_ACTIVITIES)
         return info.activities.orEmpty().associateBy { it.name }

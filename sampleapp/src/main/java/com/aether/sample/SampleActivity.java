@@ -31,8 +31,29 @@ public final class SampleActivity extends Activity {
         next.setOnClickListener(v -> startActivityForResult(new Intent(this, SampleSecondActivity.class), 41));
         layout.addView(next);
         var result = new TextView(this); result.setText("Hasil: belum ada"); result.setTag("result"); layout.addView(result);
+        if (SampleNetworkSession.configured(this)) {
+            var online = new TextView(this); online.setText("Sesi server: memuat"); layout.addView(online);
+            var login = new Button(this); login.setText("Masuk server uji"); layout.addView(login);
+            login.setOnClickListener(v -> {
+                String name = user.getText().toString();
+                user.clearFocus();
+                getSystemService(android.view.inputmethod.InputMethodManager.class).hideSoftInputFromWindow(user.getWindowToken(), 0);
+                network(online, () -> SampleNetworkSession.login(this, name));
+            });
+            network(online, () -> SampleNetworkSession.current(this));
+        }
         setContentView(layout);
         refresh();
+    }
+    private interface NetworkAction { String run() throws Exception; }
+    private void network(TextView output, NetworkAction action) {
+        new Thread(() -> {
+            String message;
+            try { message = "Sesi server: " + action.run(); }
+            catch (Exception error) { message = "Sesi server gagal: " + error.getMessage(); }
+            final String result = message;
+            runOnUiThread(() -> { if (!isDestroyed()) output.setText(result); });
+        }, "sample-network").start();
     }
     private void refresh() {
         status.setText("Akun contoh: " + getSharedPreferences("ui-account", MODE_PRIVATE).getString("user", "belum masuk"));

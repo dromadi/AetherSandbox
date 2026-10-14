@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <application android:label="@string/sample_label" android:name=".SampleApplication">
         <activity android:name=".SampleSecondActivity" android:exported="false" />
         <activity android:name=".SampleActivity" android:exported="true">
@@ -9,6 +10,7 @@
         <activity-alias android:name=".SampleLauncher" android:targetActivity=".SampleActivity" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity-alias>
+        <provider android:name=".SampleInitProvider" android:authorities="com.aether.sample.init" android:exported="false" android:initOrder="100" />
         <service android:name=".SampleService" android:exported="false" />
         <receiver android:name=".SampleReceiver" android:exported="false" />
     </application>

@@ -20,10 +20,12 @@ data class GeneralGuest(
     val context: VirtualContext,
     val application: Application,
     val components: com.aether.sandbox.data.GuestComponents,
+    val providers: List<android.content.ContentProvider>,
 )
 
 data class PreparedGuest(val context: VirtualContext, val applicationClass: Class<out Application>,
-    val components: com.aether.sandbox.data.GuestComponents)
+    val components: com.aether.sandbox.data.GuestComponents,
+    val providers: List<android.content.pm.ProviderInfo>)
 
 object GeneralGuestLoader {
     /** IO-only preparation. The caller starts the Application on Android's main thread. */
@@ -48,7 +50,7 @@ object GeneralGuestLoader {
 
         val className = appInfo.className ?: Application::class.java.name
         val applicationClass = loader.loadClass(className).asSubclass(Application::class.java)
-        return PreparedGuest(context, applicationClass, components)
+        return PreparedGuest(context, applicationClass, components, repository.providerRegistry(record))
     }
 
     fun start(prepared: PreparedGuest): GeneralGuest {
@@ -56,8 +58,29 @@ object GeneralGuestLoader {
         val application = prepared.applicationClass.getDeclaredConstructor().newInstance()
         attach(application, prepared.context)
         prepared.context.application = application
-        application.onCreate()
-        return GeneralGuest(prepared.context, application, prepared.components)
+        // Android initializes same-process providers after Application.attach, before onCreate.
+        // Keep them process-local: authorities are NOT published to the host/system resolver.
+        val providers = mutableListOf<android.content.ContentProvider>()
+        try {
+            val appInfo = prepared.context.applicationInfo
+            val enabled = prepared.providers.filter { it.enabled && appInfo.enabled }
+            check(enabled.all { it.processName == null || it.processName == appInfo.processName }) {
+                "Provider dengan proses terpisah belum didukung"
+            }
+            for (source in enabled.sortedByDescending { it.initOrder }) {
+                val provider = prepared.context.classLoader.loadClass(source.name)
+                    .asSubclass(android.content.ContentProvider::class.java).getDeclaredConstructor().newInstance()
+                providers += provider
+                val info = android.content.pm.ProviderInfo(source).apply { applicationInfo = appInfo }
+                provider.attachInfo(prepared.context, info)
+            }
+            application.onCreate()
+            return GeneralGuest(prepared.context, application, prepared.components, providers)
+        } catch (failure: Throwable) {
+            providers.asReversed().forEach { runCatching { it.shutdown() } }
+            prepared.context.application = null
+            throw failure
+        }
     }
 
     /** Calls the protected Application.attachBaseContext(Context) through reflection. */

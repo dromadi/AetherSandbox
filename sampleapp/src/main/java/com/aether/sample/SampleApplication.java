@@ -14,6 +14,9 @@ public final class SampleApplication extends Application {
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
             throw new IllegalStateException("Guest Application must start on the main thread");
         }
+        if (!new File(getFilesDir(), "provider.txt").exists()) {
+            throw new IllegalStateException("Provider must initialize before Application.onCreate");
+        }
         try {
             System.loadLibrary("sample_native");
             Files.write(new File(getFilesDir(), "native.txt").toPath(), nativeGreeting().getBytes(StandardCharsets.UTF_8));

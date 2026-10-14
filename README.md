@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.7**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.8**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -16,6 +16,14 @@ Versi awal: **0.1.0-alpha.7**. Android 8–16 (minSdk 26, targetSdk 36).
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
 
+## Pembaruan alpha.8 — jaringan dan startup Provider
+
+- Host memiliki izin INTERNET. Release tetap menolak cleartext HTTP; debug mengizinkan HTTP hanya ke localhost/127.0.0.1 untuk tes.
+- Provider manifest yang aktif dalam proses Application diinisialisasi pada main thread, mengikuti initOrder menurun, sebelum Application.onCreate. Context/resource/metadata tetap milik guest; provider proses lain ditolak dengan pesan jelas.
+- Provider dipertahankan selama runtime dan shutdown saat cleanup. Authorities tidak didaftarkan ke sistem: ContentResolver/CRUD, IPC dan FileProvider belum divirtualisasi.
+- Tes baru memakai server HTTP loopback nyata: dua instance mendapat token akun alpha/beta berbeda, sesi diperiksa ulang setelah stop/relaunch tanpa login ulang.
+- Ini bukti aplikasi contoh dengan backend uji, bukan bukti WhatsApp/Instagram/Google services berjalan. HTTP jaringan produksi, izin per instance, cookie framework global dan backend eksternal belum diuji.
+
 ## Pembaruan alpha.7 — Activity aplikasi umum (eksperimental)
 
 - Activity guest dibuat melalui Instrumentation pada komponen proxy terdaftar, dengan token sistem Android nyata; bukan View yang meniru UI aplikasi.
@@ -24,7 +32,7 @@ Versi awal: **0.1.0-alpha.7**. Android 8–16 (minSdk 26, targetSdk 36).
 - APK contoh tetap aplikasi Android biasa, tidak menggunakan GuestEntry/Aether API. Tes menjalankan dua akun contoh lokal berbeda, navigasi/result, pindah task dan persistensi setelah stop/relaunch.
 - Bergantung API internal Android dengan AndroidHiddenApiBypass 6.1 (Apache-2.0), hanya dipasang di proses guest dengan prefix exemption terbatas. Gagal dengan pesan jelas jika hook tidak tersedia. Kompatibilitas OS/vendor harus dibuktikan; belum disiapkan untuk distribusi Play Store.
 
-Batas alpha.7: baru Intent eksplisit dan flag NEW_TASK dasar. Service/Provider/receiver, intent implisit, flag task khusus, Application.startActivity, autofill, permission/notifikasi/Google services dan login aplikasi produksi belum divirtualisasi. Dua akun contoh lokal tidak membuktikan WhatsApp/Instagram bekerja. UID tetap sama dengan host.
+Batas alpha.7: baru Intent eksplisit dan flag NEW_TASK dasar. Service/resolver Provider/receiver, intent implisit, flag task khusus, Application.startActivity, autofill, permission/notifikasi/Google services dan login aplikasi produksi belum divirtualisasi. Dua akun contoh lokal tidak membuktikan WhatsApp/Instagram bekerja. UID tetap sama dengan host.
 
 ## Pembaruan alpha.6 — kendali proses dan pengelolaan instance
 
@@ -71,7 +79,7 @@ Batas alpha.7: baru Intent eksplisit dan flag NEW_TASK dasar. Service/Provider/r
 
 ## Batas alpha ini
 
-APK umum menjalankan Application dan, sejak alpha.7, Activity melalui proxy eksperimental. Service/Provider/Broadcast dan kompatibilitas APK produksi belum tersedia. APK fixture tetap mendapat jalur opt-in melalui GuestEntry.
+APK umum menjalankan Application dan, sejak alpha.7, Activity melalui proxy eksperimental. Service/resolver Provider/Broadcast dan kompatibilitas APK produksi belum tersedia. APK fixture tetap mendapat jalur opt-in melalui GuestEntry.
 
 `VirtualContext` mengarahkan operasi file dan SQLite yang dipanggil melalui context tersebut. SharedPreferences menggunakan namespace per instance di penyimpanan host. Pemanggilan filesystem langsung, JNI, Binder, PackageManager, dan framework singleton belum divirtualisasi.
 

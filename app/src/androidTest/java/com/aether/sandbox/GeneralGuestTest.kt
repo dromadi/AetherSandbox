@@ -36,6 +36,11 @@ class GeneralGuestTest {
                 listOf("com.aether.sample.SampleActivity", "com.aether.sample.SampleSecondActivity")))
             assertTrue(components.services.contains("com.aether.sample.SampleService"))
             assertTrue(components.receivers.contains("com.aether.sample.SampleReceiver"))
+            assertTrue(components.providers.contains("com.aether.sample.SampleInitProvider"))
+            assertEquals(1, guest.providers.size)
+            assertEquals("provider:com.aether.sample",
+                File(repository.directory(first.id), "data/files/provider.txt").readText())
+            assertFalse(File(repository.directory(second.id), "data/files/provider.txt").exists())
             // Resources resolve against the guest APK, not the host.
             assertEquals("Aether Sample App", guest.context.getString(
                 guest.context.resources.getIdentifier("sample_label", "string", "com.aether.sample")))
@@ -48,6 +53,7 @@ class GeneralGuestTest {
             assertEquals("onCreate:com.aether.sample", markerFirst.readText())
             assertFalse("Instances must not share storage",
                 File(repository.directory(second.id), "data/files/started.txt").exists())
+            guest.providers.forEach { it.shutdown() }
             runCatching { guest.application.onTerminate() }
         } finally {
             repository.list().filter { it.id == first.id || it.id == second.id }.forEach { repository.delete(it.id) }
