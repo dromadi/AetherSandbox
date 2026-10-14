@@ -8,12 +8,15 @@ import java.nio.file.Files;
 
 /** Plain third-party app: on startup it writes a marker into its own files dir. */
 public final class SampleApplication extends Application {
+    private static native String nativeGreeting();
     @Override public void onCreate() {
         super.onCreate();
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
             throw new IllegalStateException("Guest Application must start on the main thread");
         }
         try {
+            System.loadLibrary("sample_native");
+            Files.write(new File(getFilesDir(), "native.txt").toPath(), nativeGreeting().getBytes(StandardCharsets.UTF_8));
             File marker = new File(getFilesDir(), "started.txt");
             Files.write(marker.toPath(), ("onCreate:" + getPackageName()).getBytes(StandardCharsets.UTF_8));
             if (new File(getFilesDir(), "start-worker").exists()) {

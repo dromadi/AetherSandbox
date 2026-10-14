@@ -42,6 +42,8 @@ class GeneralGuestTest {
 
             // Application.onCreate wrote its marker into this instance's private storage only.
             val markerFirst = File(repository.directory(first.id), "data/files/started.txt")
+            assertEquals("native-library-loaded", File(repository.directory(first.id), "data/files/native.txt").readText())
+            assertEquals(File(repository.directory(first.id), "data").path, guest.context.applicationInfo.dataDir)
             assertTrue("Application.onCreate did not run", markerFirst.exists())
             assertEquals("onCreate:com.aether.sample", markerFirst.readText())
             assertFalse("Instances must not share storage",

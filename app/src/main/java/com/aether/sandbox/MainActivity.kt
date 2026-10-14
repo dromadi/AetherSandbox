@@ -207,7 +207,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
     state.report?.let { report ->
         AlertDialog(onDismissRequest = model::dismissReport, title = { Text("Laporan runtime") },
             text = { androidx.compose.foundation.layout.Box(Modifier.heightIn(max = 400.dp)) {
-                Text(report, modifier = Modifier.then(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())), style = MaterialTheme.typography.bodySmall)
+                Text(report, modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()), style = MaterialTheme.typography.bodySmall)
             } },
             confirmButton = { TextButton(enabled = !state.busy, onClick = { export.launch("AetherSandbox-runtime.txt") }) { Text("Ekspor") } },
             dismissButton = { TextButton(onClick = model::dismissReport) { Text("Tutup") } })

@@ -171,7 +171,7 @@ class SandboxRepository(private val context: Context) {
         val source = find(id)
         verifyIntegrity(source)
         val copy = importApk(Uri.fromFile(apk(source)))
-        rename(copy.id, "${source.instanceName} • salinan")
+        rename(copy.id, "${source.instanceName.take(70)} • salinan")
         return find(copy.id)
     }
 

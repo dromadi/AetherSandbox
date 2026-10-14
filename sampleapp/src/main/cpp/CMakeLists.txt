@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(aether_sample LANGUAGES CXX)
+add_library(sample_native SHARED sample_native.cpp)
+target_compile_features(sample_native PRIVATE cxx_std_17)
+target_compile_options(sample_native PRIVATE -Wall -Wextra -Werror)
+target_link_options(sample_native PRIVATE "-Wl,-z,max-page-size=16384")
