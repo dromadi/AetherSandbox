@@ -194,6 +194,17 @@ class SandboxRepository(private val context: Context) {
         }
     }
 
+    fun runtimeLocation(id: String): Pair<Int, Int> {
+        find(id)
+        val report = File(directory(id), "runtime-report.json")
+        val json = JSONObject(report.inputStream().use { input ->
+            input.readBytesBounded(32_769).also { check(it.size <= 32_768) }.toString(Charsets.UTF_8)
+        })
+        val slot = json.getInt("slot")
+        require(slot in 0..3)
+        return json.getInt("taskId") to slot
+    }
+
     fun runtimeReport(id: String): String {
         val record = find(id)
         val components = guestComponents(record)
@@ -207,7 +218,7 @@ class SandboxRepository(private val context: Context) {
             appendLine("Berjalan: ${isRunning(id)}")
             appendLine("Launcher: ${components.launcher ?: "tidak tersedia"}")
             appendLine("Activity=${components.activities.size}; Service=${components.services.size}; Provider=${components.providers.size}; Receiver=${components.receivers.size}")
-            appendLine("Runtime umum: Application saja; Activity/Service/Provider belum dieksekusi.")
+            appendLine("Runtime umum: Activity proxy eksperimental; Service/Provider belum dieksekusi.")
             appendLine("Guest memakai UID host; bukan isolasi keamanan.")
             if (report.exists() && report.length() <= 32_768) appendLine(report.readText())
         }
@@ -237,6 +248,11 @@ class SandboxRepository(private val context: Context) {
         val info = archiveInfo(file, PackageManager.GET_ACTIVITIES)
         info.applicationInfo?.apply { sourceDir = file.path; publicSourceDir = file.path }
         return info
+    }
+
+    fun activityRegistry(record: SandboxRecord): Map<String, android.content.pm.ActivityInfo> {
+        val info = archiveInfo(apk(record), PackageManager.GET_ACTIVITIES)
+        return info.activities.orEmpty().associateBy { it.name }
     }
 
     /**

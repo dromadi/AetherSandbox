@@ -84,7 +84,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
             contentPadding = PaddingValues(vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("AetherSandbox", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("VirtuBox Core • 0.1.0-alpha.6", color = MaterialTheme.colorScheme.secondary)
+                Text("VirtuBox Core • 0.1.0-alpha.7", color = MaterialTheme.colorScheme.secondary)
             }
             item {
                 Card {
@@ -93,7 +93,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                         Text("Impor APK, kelola instance, jalankan fixture penuh atau muat aplikasi umum dengan data terpisah.")
                         Text("Android ${Build.VERSION.RELEASE} • $abi • ${state.records.size} instance • ${state.running.size} berjalan",
                             style = MaterialTheme.typography.bodySmall)
-                        Text("Empat slot runtime. Aplikasi umum baru menjalankan Application, belum layar aplikasinya. Semua guest memakai UID host; jalankan APK yang Anda percayai.", color = MaterialTheme.colorScheme.secondary,
+                        Text("Empat slot runtime. Activity APK umum memakai proxy eksperimental. Semua guest memakai UID host; jalankan APK yang Anda percayai.", color = MaterialTheme.colorScheme.secondary,
                             style = MaterialTheme.typography.bodySmall)
                         Button(enabled = !state.busy, onClick = { import.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream")) }) {
                             Text("Impor APK")
@@ -149,10 +149,11 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                         Text("Test ID: ${record.testAndroidId}", style = MaterialTheme.typography.bodySmall)
                         Text("SHA-256: ${record.sha256.take(16)}…", style = MaterialTheme.typography.bodySmall)
                         Text(if (record.trustedFixture) "Fixture kompatibel: UI penuh + kamera virtual"
-                            else "Aplikasi umum: kode + resource + Application (milestone 1)",
+                            else "Aplikasi umum: Activity proxy eksperimental",
                             color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (running) {
+                                Button(enabled = !state.busy, onClick = { launchGuest(record) }) { Text("Buka") }
                                 Button(enabled = !state.busy, onClick = { model.stop(record.id) }) { Text("Hentikan") }
                             } else {
                                 Button(enabled = !state.busy, onClick = {
@@ -189,7 +190,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
     }
     launching?.let { record ->
         AlertDialog(onDismissRequest = { launching = null }, title = { Text("Jalankan kode APK?") },
-            text = { Text("${record.instanceName} akan menjalankan Application dengan UID host dan dapat mengakses data host serta instance lain. Layar Activity aplikasi belum didukung.") },
+            text = { Text("${record.instanceName} akan menjalankan Application dengan UID host dan dapat mengakses data host serta instance lain. Activity proxy bersifat eksperimental; layanan dan kompatibilitas aplikasi belum lengkap.") },
             confirmButton = { TextButton(onClick = { launchGuest(record); launching = null }) { Text("Jalankan") } },
             dismissButton = { TextButton(onClick = { launching = null }) { Text("Batal") } })
     }

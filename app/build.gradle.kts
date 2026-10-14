@@ -11,8 +11,8 @@ android {
         applicationId = "com.aether.sandbox"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.1.0-alpha.6"
+        versionCode = 7
+        versionName = "0.1.0-alpha.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         externalNativeBuild { cmake { cppFlags += "-std=c++20" } }
@@ -40,6 +40,7 @@ tasks.matching { it.name in setOf(
 ) }.configureEach { dependsOn(prepareFixture) }
 kotlin { jvmToolchain(17) }
 dependencies {
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
     implementation(project(":domain"))
     implementation(project(":guest-api"))
     implementation(platform(libs.compose.bom))

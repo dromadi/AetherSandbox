@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.6**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.7**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -16,6 +16,16 @@ Versi awal: **0.1.0-alpha.6**. Android 8–16 (minSdk 26, targetSdk 36).
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
 
+## Pembaruan alpha.7 — Activity aplikasi umum (eksperimental)
+
+- Activity guest dibuat melalui Instrumentation pada komponen proxy terdaftar, dengan token sistem Android nyata; bukan View yang meniru UI aplikasi.
+- Context, Application, resource/theme dan ActivityInfo diarahkan ke guest sebelum onCreate. Intent eksplisit antar Activity guest memakai stub dalam proses instance yang sama.
+- Lifecycle, Back, dan startActivityForResult mengikuti transaksi Android; tombol Buka memindahkan task instance yang berjalan ke depan tanpa membongkar stack.
+- APK contoh tetap aplikasi Android biasa, tidak menggunakan GuestEntry/Aether API. Tes menjalankan dua akun contoh lokal berbeda, navigasi/result, pindah task dan persistensi setelah stop/relaunch.
+- Bergantung API internal Android dengan AndroidHiddenApiBypass 6.1 (Apache-2.0), hanya dipasang di proses guest dengan prefix exemption terbatas. Gagal dengan pesan jelas jika hook tidak tersedia. Kompatibilitas OS/vendor harus dibuktikan; belum disiapkan untuk distribusi Play Store.
+
+Batas alpha.7: baru Intent eksplisit dan flag NEW_TASK dasar. Service/Provider/receiver, intent implisit, flag task khusus, Application.startActivity, autofill, permission/notifikasi/Google services dan login aplikasi produksi belum divirtualisasi. Dua akun contoh lokal tidak membuktikan WhatsApp/Instagram bekerja. UID tetap sama dengan host.
+
 ## Pembaruan alpha.6 — kendali proses dan pengelolaan instance
 
 - Empat slot runtime memakai proses berbeda. Slot dan instance memakai lease OS; proses yang ditempati tidak diganti ketika dua launch bertabrakan.
@@ -26,7 +36,7 @@ Versi awal: **0.1.0-alpha.6**. Android 8–16 (minSdk 26, targetSdk 36).
 - Nama instance, duplikasi APK dengan data kosong, reset data sambil mempertahankan APK/profil, shortcut launcher (jika didukung), dan laporan runtime yang dapat diekspor.
 - Laporan menyimpan event terakhir/startup/crash dan kegagalan terakhir; bukan tracing semua API guest.
 
-**Batas tetap:** layar Activity aplikasi umum belum dijalankan. Proses terpisah tetap memakai UID host, sehingga belum menjadi isolasi keamanan. Empat proses bukan empat ROM Android. Lihat [roadmap kompetitor](docs/COMPETITOR_ROADMAP.md) untuk seluruh backlog dan kriteria penerimaan.
+**Batas alpha.6 historis:** layar Activity aplikasi umum belum dijalankan pada alpha.6; alpha.7 menambah jalur proxy eksperimental. Proses terpisah tetap memakai UID host, sehingga belum menjadi isolasi keamanan. Empat proses bukan empat ROM Android. Lihat [roadmap kompetitor](docs/COMPETITOR_ROADMAP.md) untuk seluruh backlog dan kriteria penerimaan.
 
 ## Pembaruan alpha.2
 
@@ -61,7 +71,7 @@ Versi awal: **0.1.0-alpha.6**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Batas alpha ini
 
-APK umum kini dimuat dan menjalankan `Application.onCreate()`-nya (alpha.5, milestone 1), tetapi **belum dapat menjalankan Activity/Service/Provider pihak ketiga** — itu butuh intersepsi ActivityManager/Binder. APK fixture tetap mendapat jalur UI penuh melalui kontrak `GuestEntry`.
+APK umum menjalankan Application dan, sejak alpha.7, Activity melalui proxy eksperimental. Service/Provider/Broadcast dan kompatibilitas APK produksi belum tersedia. APK fixture tetap mendapat jalur opt-in melalui GuestEntry.
 
 `VirtualContext` mengarahkan operasi file dan SQLite yang dipanggil melalui context tersebut. SharedPreferences menggunakan namespace per instance di penyimpanan host. Pemanggilan filesystem langsung, JNI, Binder, PackageManager, dan framework singleton belum divirtualisasi.
 

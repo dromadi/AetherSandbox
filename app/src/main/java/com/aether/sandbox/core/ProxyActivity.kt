@@ -30,6 +30,8 @@ open class ProxyActivity : ComponentActivity() {
     private val terminating = java.util.concurrent.atomic.AtomicBoolean(false)
 
     private var guest: GuestLifecycle? = null
+    private var autoLaunchWhenResumed = false
+    private var activityRuntime: GuestActivityRuntime? = null
     private var generalApp: android.app.Application? = null
     @Volatile private var lease: RuntimeLease? = null
     private var loadingJob: Job? = null
@@ -38,7 +40,7 @@ open class ProxyActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        onBackPressedDispatcher.addCallback(this) { finish() }
+        onBackPressedDispatcher.addCallback(this) { finishAndRemoveTask() }
         val loading = TextView(this).apply { text = "Memuat guest…"; gravity = Gravity.CENTER }
         setContentView(loading)
         val repository = SandboxRepository(this)
@@ -47,7 +49,7 @@ open class ProxyActivity : ComponentActivity() {
             loading.text = "Guest gagal dimuat: instance tidak ditentukan"
             return
         }
-        stopReceiver = RuntimeControl.register(this, id) { finish() }
+        stopReceiver = RuntimeControl.register(this, id) { finishAndRemoveTask() }
         loadingJob = lifecycleScope.launch {
             try {
                 val record = withContext(Dispatchers.IO) {
@@ -56,7 +58,7 @@ open class ProxyActivity : ComponentActivity() {
                     lease = repository.acquireRuntime(id, SandboxRepository.LAUNCH_LEASE_WAIT_MILLIS)
                     repository.find(id)
                 }
-                journal = RuntimeJournal(repository.directory(record.id)).also { it.record("STARTING") }
+                journal = RuntimeJournal(repository.directory(record.id), taskId, slot).also { it.record("STARTING") }
                 val previous = Thread.getDefaultUncaughtExceptionHandler()
                 Thread.setDefaultUncaughtExceptionHandler { thread, error ->
                     journal?.record("CRASHED", "${error.javaClass.name}: ${error.message}")
@@ -95,7 +97,11 @@ open class ProxyActivity : ComponentActivity() {
 
     private suspend fun loadGeneralApp(repository: SandboxRepository, record: com.aether.sandbox.data.SandboxRecord) {
         val prepared = withContext(Dispatchers.IO) { GeneralGuestLoader.prepare(this@ProxyActivity, record, repository) }
+        val activities = withContext(Dispatchers.IO) { repository.activityRegistry(record) }
+        val bridge = GuestActivityRuntime.install(this, record, prepared, activities)
+        activityRuntime = bridge
         val loaded = GeneralGuestLoader.start(prepared)
+        bridge.attachApplication(loaded.application)
         generalApp = loaded.application
         val c = loaded.components
         val report = buildString {
@@ -108,11 +114,27 @@ open class ProxyActivity : ComponentActivity() {
             append("• Activity: ${c.activities.size}   • Service: ${c.services.size}\n")
             append("• Provider: ${c.providers.size}   • Receiver: ${c.receivers.size}\n")
             append("Launcher: ${c.launcher ?: "tidak ada"}\n\n")
-            append("Milestone 1–2a: Application.onCreate() guest berjalan dan komponen sudah diinventarisasi. Menjalankan Activity/Service/Provider guest belum didukung (perlu intersepsi ActivityManager/Binder).")
+            append("Activity guest memakai proxy Android (eksperimental). Service, Provider, intent implisit, dan flag task khusus belum didukung.")
         }
         setContentView(runtimeFrame("Aether runtime • aplikasi umum") {
+            addView(Button(this@ProxyActivity).apply {
+                text = "Buka layar aplikasi"
+                isEnabled = prepared.components.launcher != null
+                setOnClickListener { runCatching { bridge.launch() }.onFailure {
+                    android.widget.Toast.makeText(this@ProxyActivity, it.message, android.widget.Toast.LENGTH_LONG).show()
+                } }
+            })
             addView(TextView(this@ProxyActivity).apply { text = report }, LinearLayout.LayoutParams(-1, 0, 1f))
         })
+        autoLaunchWhenResumed = true
+        launchWhenResumed()
+    }
+
+    private fun launchWhenResumed() {
+        if (autoLaunchWhenResumed && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            autoLaunchWhenResumed = false
+            activityRuntime?.launch()
+        }
     }
 
     private inline fun runtimeFrame(header: String, body: LinearLayout.() -> Unit): LinearLayout =
@@ -124,7 +146,7 @@ open class ProxyActivity : ComponentActivity() {
             })
             addView(Button(this@ProxyActivity).apply {
                 text = "Hentikan guest"
-                setOnClickListener { finish() }
+                setOnClickListener { finishAndRemoveTask() }
             })
             body()
         }
@@ -143,7 +165,7 @@ open class ProxyActivity : ComponentActivity() {
     }
 
     override fun onStart() { super.onStart(); dispatch { it.start() } }
-    override fun onResume() { super.onResume(); dispatch { it.resume() } }
+    override fun onResume() { super.onResume(); dispatch { it.resume() }; window.decorView.post { launchWhenResumed() } }
     override fun onPause() { dispatch { it.pause() }; super.onPause() }
     override fun onStop() { dispatch { it.stop() }; super.onStop() }
 

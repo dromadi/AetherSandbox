@@ -23,6 +23,7 @@ class VirtualContext(
     private val guestResources: Resources,
     private val guestApplicationInfo: ApplicationInfo? = null,
 ) : ContextWrapper(host) {
+    fun forActivity(host: Context) = VirtualContext(host, guestRoot, guestPackage, instanceId, loader, guestResources, guestApplicationInfo)
     /** The guest Application once instantiated; it becomes this context's applicationContext. */
     var application: Application? = null
     private fun directory(name: String) = SandboxPaths.resolve(guestRoot, name).apply {
@@ -41,8 +42,14 @@ class VirtualContext(
     override fun getAssets(): AssetManager = guestResources.assets
     private val guestTheme by lazy { guestResources.newTheme().apply { applyStyle(android.R.style.Theme_Material_Light_NoActionBar, true) } }
     override fun getTheme(): Resources.Theme = guestTheme
-    override fun getSystemService(name: String): Any? = if (name == LAYOUT_INFLATER_SERVICE)
-        android.view.LayoutInflater.from(baseContext).cloneInContext(this) else super.getSystemService(name)
+    private val autofillServiceName by lazy { baseContext.getSystemServiceName(android.view.autofill.AutofillManager::class.java) }
+    override fun getSystemService(name: String): Any? = when (name) {
+        // Autofill validates the component with PackageManager. Guest APKs are not installed;
+        // exposing the host's autofill identity is also incorrect. Explicitly unsupported.
+        autofillServiceName -> null
+        LAYOUT_INFLATER_SERVICE -> android.view.LayoutInflater.from(baseContext).cloneInContext(this)
+        else -> super.getSystemService(name)
+    }
     override fun getFilesDir() = directory("files")
     override fun getCacheDir() = directory("cache")
     override fun getCodeCacheDir() = directory("code_cache")

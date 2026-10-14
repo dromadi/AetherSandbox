@@ -104,3 +104,11 @@ Overlay menggunakan foreground service mediaPlayback yang dimulai dari tindakan 
 - [Android Process dan UID](https://developer.android.com/reference/android/os/Process)
 - [Android Application Sandbox](https://source.android.com/docs/security/app-sandbox)
 - [Foreground service mediaPlayback](https://developer.android.com/develop/background-work/services/fgs/service-types#media)
+
+## Activity proxy alpha.7 (eksperimental)
+
+ActivityManager melihat komponen stub host yang terdaftar dan memiliki token/lifecycle Android nyata. Instrumentation di proses guest memuat kelas Activity APK umum. Sebelum onCreate, base context, resource/theme, Application, intent dan ActivityInfo diarahkan ke guest. Instrumen asli tetap meneruskan lifecycle dan transaksi startActivityForResult; stack tidak diemulasi dengan View. Intent eksplisit dalam registry yang sama diarahkan ke stub pada slot proses yang sama. Intent implisit/flag task khusus masih ditolak.
+
+Stop root menghapus seluruh task sebelum proses ditutup, sehingga child Activity tidak dipulihkan sebagai task orphan. Root runtime hanya melakukan auto-launch ketika resumed, agar loading instance background tidak mencuri fokus dari instance lain. Journal menyimpan ID task dan slot; router memverifikasi ID dan komponen host (extra Intent pada RecentTaskInfo tidak dapat diandalkan). Router memindahkan app task yang sudah berjalan ke depan tanpa meluncurkan kembali singleTask root dan menghapus stack di atasnya.
+
+AndroidHiddenApiBypass 6.1 dipin dengan prefix exemption terbatas pada Activity/ActivityThread/Instrumentation/ContextWrapper/ContextThemeWrapper, hanya di proses guest. Tidak ada root, modifikasi APK guest, atau penyembunyian metadata dependensi. Autofill guest dimatikan karena komponen guest tidak terdaftar di PackageManager; identitas autofill host tidak diteruskan sebagai identitas guest. Dukungan vendor, AppCompat/Compose, application-level startActivity, provider/service, Google services dan login jaringan belum dibuktikan.

@@ -83,6 +83,11 @@ class InstanceManagementTest {
         try {
             host.startActivity(Intent(host, ProxyActivity::class.java).putExtra(ProxyActivity.EXTRA_ID, a.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             awaitCondition("First worker did not start") { heartbeatA.exists() && heartbeatA.length() > 0 }
+            // Alpha.7 launches a real child Activity after Application startup. Wait for that
+            // launch to settle before requesting the second task, as a user switching apps does.
+            val device = UiDevice.getInstance(instrumentation)
+            assertTrue("First guest UI did not become ready", device.wait(Until.hasObject(By.text("Sample account screen")), 15_000))
+            device.waitForIdle()
             host.startActivity(Intent(host, ProxyActivity1::class.java).putExtra(ProxyActivity.EXTRA_ID, b.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             awaitCondition("Second worker did not start") { heartbeatB.exists() && heartbeatB.length() > 0 }
             assertTrue(repo.isRunning(a.id)); assertTrue(repo.isRunning(b.id))

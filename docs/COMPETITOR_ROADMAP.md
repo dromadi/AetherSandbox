@@ -9,7 +9,7 @@ Tujuan produk: APK umum dapat dipakai dalam beberapa instance independen, dengan
 | Impor dan banyak instance | Ada; duplikasi APK terverifikasi menghasilkan data kosong | Split APK/APKS, pemilihan aplikasi terpasang, update APK tanpa hilang data |
 | Multi-instance aktif | Empat slot proses dengan lease instance dan slot | Dua guest background terus bekerja; stop satu tidak mematikan yang lain; batas slot jelas |
 | Startup aplikasi umum | Persiapan IO, constructor/attach/onCreate di main thread | Application AndroidX/Firebase/Unity, initialization provider, multidex dan native library pada perangkat ARM |
-| Layar aplikasi umum | **Belum** | Launcher yang benar terbuka; Activity kedua, Back, rotasi, task/result dan lifecycle benar |
+| Layar aplikasi umum | Alpha.7: proxy Activity eksperimental; CI menjadi gerbang | Launcher yang benar terbuka; Activity kedua, Back, rotasi, task/result dan lifecycle benar |
 | Service / Broadcast / Provider | Registry saja; **belum dieksekusi** | start/bind service, receiver dinamis, provider authority per instance, lifecycle dan proses mati |
 | Library native | Ekstraksi bounded untuk ABI yang cocok dengan proses | Library JNI benar dimuat, native dependency, ELF 16 KB, pengujian ARM64; syscall redirect belum ada |
 | Akun dan konektivitas | Penyimpanan kooperatif; **login belum dibuktikan** | Dua akun pada aplikasi uji dengan server lokal, sesi bertahan setelah restart, izin jaringan eksplisit |
