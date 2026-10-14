@@ -1,5 +1,6 @@
 package com.aether.sandbox.core
 
+import android.content.BroadcastReceiver
 import android.os.Bundle
 import android.os.Process
 import android.util.Log
@@ -22,8 +23,9 @@ import kotlinx.coroutines.withContext
 
 class ProxyActivity : ComponentActivity() {
     private var guest: GuestLifecycle? = null
-    private var lease: RuntimeLease? = null
+    @Volatile private var lease: RuntimeLease? = null
     private var loadingJob: Job? = null
+    private var stopReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,16 +34,17 @@ class ProxyActivity : ComponentActivity() {
         setContentView(loading)
         val repository = SandboxRepository(this)
         val id = intent.getStringExtra(EXTRA_ID)
-        try {
-            lease = repository.acquireRuntime(requireNotNull(id))
-        } catch (error: Exception) {
-            loading.text = "Fixture gagal dimuat: ${error.message}"
+        if (id == null) {
+            loading.text = "Fixture gagal dimuat: instance tidak ditentukan"
             return
         }
+        stopReceiver = RuntimeControl.register(this, id) { finish() }
         loadingJob = lifecycleScope.launch {
             try {
                 val (record, loaded) = withContext(Dispatchers.IO) {
-                    val record = repository.find(requireNotNull(id))
+                    // The host's status probe can hold the free lease for an instant: retry briefly.
+                    lease = repository.acquireRuntime(id, SandboxRepository.LAUNCH_LEASE_WAIT_MILLIS)
+                    val record = repository.find(id)
                     record to VirtualClassLoader.load(this@ProxyActivity, record, repository)
                 }
                 guest = GuestLifecycle(loaded.entry)
@@ -98,13 +101,16 @@ class ProxyActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        stopReceiver?.let { runCatching { unregisterReceiver(it) } }
+        stopReceiver = null
         closeGuest()
-        val held = lease
-        lease = null
         val job = loadingJob
         job?.cancel()
-        // Cancellation does not interrupt file IO immediately. Keep the lease until loading exits.
+        // Cancellation does not interrupt file IO immediately. Keep the lease until loading exits;
+        // the IO job may still be acquiring it, so read the field only after the job completes.
         val release = {
+            val held = lease
+            lease = null
             runCatching { held?.close() }
                 .onFailure { Log.e("AetherRuntime", "Runtime lease release failed", it) }
             Unit

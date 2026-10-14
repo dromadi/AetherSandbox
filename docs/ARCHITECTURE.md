@@ -37,6 +37,12 @@ Canonical path validation menolak traversal, absolute paths, dan symlink yang ke
 
 `RuntimeLease` memakai exclusive FileChannel lock di `files/runtime-locks/<uuid>.lock`. Runtime mengambil lease sebelum membaca indeks dan melepasnya setelah teardown guest. Repository mengambil lease yang sama sebelum menghapus instance atau mengganti profil. Lock file tidak dihapus agar inode lock tetap stabil; OS melepas lease jika proses mati. Saat loading dibatalkan, lease baru dilepas setelah job IO selesai. Ini koordinasi kooperatif, bukan isolasi keamanan.
 
+## Kontrol runtime alpha.3
+
+`RuntimeLease.isHeld` menjadi registry status: host mencoba mengambil lease lalu langsung melepasnya. Karena sumbernya lock OS, status otomatis kembali "berhenti" ketika proses guest mati. Probe sesaat memegang lease yang kosong, sehingga `ProxyActivity` mengambil lease di thread IO dengan retry 1 detik.
+
+`RuntimeControl` mengirim broadcast `STOP_GUEST` dengan `setPackage` ke receiver dinamis `RECEIVER_NOT_EXPORTED` di proses runtime. Receiver memanggil `finish()`, sehingga teardown memakai jalur lifecycle yang sama dengan tombol di layar guest. Host menunggu lease dilepas sebelum melanjutkan hapus. Saluran ini satu arah; status lifecycle detail (pause/resume) dan perintah selain stop belum tersedia.
+
 ## Media dan lifecycle
 
 Pemilih video menyimpan izin URI persisten. MediaExtractor membaca track, MediaCodec mendecode ke Surface milik TextureView, dan timestamp media mengendalikan pacing. File diputar ulang saat akhir track. Pipeline dihentikan saat preview tidak resumed atau Surface dihancurkan. Decoder, extractor, dan Surface dilepas di blok finally worker.
@@ -47,7 +53,7 @@ Overlay menggunakan foreground service mediaPlayback yang dimulai dari tindakan 
 
 - Proses berbeda dengan UID sama tidak membatasi akses file, permission, Binder, dan memori native secara menyeluruh. Guest hanya fixture tepercaya.
 - SharedPreferences Android bersifat process-local/cache. Alpha tidak mendukung dua proses menulis preference instance yang sama secara bersamaan.
-- Lease per instance menolak peluncuran ganda, penghapusan, dan perubahan profil selama runtime aktif, termasuk multi-window. Hentikan guest melalui layar runtime sebelum mutasi. IPC stop dari host dan registry status runtime masih belum tersedia.
+- Lease per instance menolak peluncuran ganda, penghapusan, dan perubahan profil selama runtime aktif, termasuk multi-window. Host dapat menghentikan guest dan membaca status berjalan/berhenti (alpha.3). IPC dua arah dan perintah lifecycle selain stop belum tersedia.
 - Instalasi split APK/APKS/XAPK dan ekstraksi library native guest belum didukung.
 - Codec dan format video bergantung perangkat. Belum ada klaim semua MP4/MKV, 60 FPS, latensi, atau hardware decoder tertentu.
 - Ukuran APK universal meningkat karena menyertakan runtime Compose serta tiga ABI. Pengukuran, bukan asumsi ukuran, menentukan optimasi berikutnya.
@@ -55,7 +61,7 @@ Overlay menggunakan foreground service mediaPlayback yang dimulai dari tindakan 
 ## Gerbang pengembangan berikutnya
 
 1. Buktikan fixture pada API 26/34/36 dan arm64 asli, termasuk resource, SQLite, data, siklus lifecycle, serta clean uninstall.
-2. Tambah koordinasi proses, IPC kontrol lifecycle, registry package/component, native library loading, dan test fixture multi-component.
+2. Tambah IPC lifecycle dua arah (stop dari host dan status berjalan sudah ada sejak alpha.3), registry package/component, native library loading, dan test fixture multi-component.
 3. Evaluasi virtualisasi framework/Binder per versi Android. Buat matriks aplikasi/fitur yang benar-benar bekerja, termasuk pembatasan hidden API dan layanan sistem.
 4. Baru integrasikan kamera virtual pada target QA yang diizinkan. Uji preview/capture/Camera1/Camera2/CameraX/ImageReader secara terpisah.
 5. Jalankan benchmark reproducible dan ubah angka target setelah hasil di perangkat tersedia.

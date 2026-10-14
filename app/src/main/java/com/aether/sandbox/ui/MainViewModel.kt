@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 
 data class UiState(
     val records: List<SandboxRecord> = emptyList(),
+    val running: Set<String> = emptySet(),
     val busy: Boolean = false,
     val message: String? = null,
     val video: Uri? = null,
@@ -37,10 +38,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             mutex.withLock {
                 mutableState.update { it.copy(busy = true, message = null) }
                 try {
-                    val records = withContext(Dispatchers.IO) { block(); repository.list() }
-                    mutableState.update { it.copy(records = records, busy = false, message = success) }
+                    val (records, running) = withContext(Dispatchers.IO) {
+                        block()
+                        repository.list().let { it to repository.runningIds(it) }
+                    }
+                    mutableState.update { it.copy(records = records, running = running, busy = false, message = success) }
                 } catch (error: Exception) {
-                    mutableState.update { it.copy(busy = false, message = error.message ?: "Operasi gagal") }
+                    val running = withContext(Dispatchers.IO) { runCatching { repository.runningIds() }.getOrNull() }
+                    mutableState.update {
+                        it.copy(running = running ?: it.running, busy = false, message = error.message ?: "Operasi gagal")
+                    }
                 }
             }
         }
@@ -48,7 +55,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() = operation { }
     fun importApk(uri: Uri) = operation("APK berhasil diimpor") { repository.importApk(uri) }
-    fun delete(id: String) = operation("Instance dihapus") { repository.delete(id) }
+    fun stop(id: String) = operation("Guest dihentikan") { repository.stop(id) }
+    fun stopAll() = operation("Semua guest dihentikan") { repository.runningIds().forEach(repository::stop) }
+    /** Stops a running guest first so deletion does not require a trip to the runtime screen. */
+    fun delete(id: String) = operation("Instance dihapus") { repository.stop(id); repository.delete(id) }
     fun regenerate(id: String) = operation("Profil uji diperbarui") { repository.regenerateProfile(id) }
     fun dismissMessage() { mutableState.update { it.copy(message = null) } }
     fun message(text: String) { mutableState.update { it.copy(message = text) } }

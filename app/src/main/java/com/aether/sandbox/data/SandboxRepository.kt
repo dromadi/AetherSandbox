@@ -5,7 +5,9 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.util.AtomicFile
+import com.aether.sandbox.core.RuntimeControl
 import com.aether.sandbox.domain.ArchiveValidator
 import com.aether.sandbox.domain.BoundedCopy
 import com.aether.sandbox.domain.SandboxPaths
@@ -91,8 +93,36 @@ class SandboxRepository(private val context: Context) {
         }
     }
 
-    fun acquireRuntime(id: String): RuntimeLease =
-        RuntimeLease.acquire(File(context.filesDir, "runtime-locks"), id)
+    private val locks get() = File(context.filesDir, "runtime-locks")
+
+    /** Takes the instance lease, retrying while it is busy for up to [waitMillis]. */
+    fun acquireRuntime(id: String, waitMillis: Long = 0): RuntimeLease {
+        val deadline = SystemClock.uptimeMillis() + waitMillis
+        while (true) {
+            try {
+                return RuntimeLease.acquire(locks, id)
+            } catch (busy: RuntimeLease.Busy) {
+                if (SystemClock.uptimeMillis() >= deadline) throw busy
+                SystemClock.sleep(LEASE_POLL_MILLIS)
+            }
+        }
+    }
+
+    fun isRunning(id: String): Boolean = RuntimeLease.isHeld(locks, id)
+
+    fun runningIds(records: List<SandboxRecord> = list()): Set<String> =
+        records.map { it.id }.filterTo(mutableSetOf()) { isRunning(it) }
+
+    /** Asks the runtime of [id] to finish and waits until its lease is released. */
+    fun stop(id: String, waitMillis: Long = STOP_TIMEOUT_MILLIS) {
+        if (!isRunning(id)) return
+        RuntimeControl.requestStop(context, id)
+        val deadline = SystemClock.uptimeMillis() + waitMillis
+        while (isRunning(id)) {
+            if (SystemClock.uptimeMillis() >= deadline) throw IOException("Guest tidak berhenti dalam ${waitMillis / 1000} detik")
+            SystemClock.sleep(LEASE_POLL_MILLIS)
+        }
+    }
 
     fun regenerateProfile(id: String) = acquireRuntime(id).use {
         find(id)
@@ -169,6 +199,9 @@ class SandboxRepository(private val context: Context) {
         const val MAX_APK_BYTES = 256L * 1024 * 1024
         const val ENTRY_META = "com.aether.sandbox.GUEST_ENTRY"
         const val FIXTURE_PACKAGE = "com.aether.fixture"
+        const val STOP_TIMEOUT_MILLIS = 5_000L
+        const val LAUNCH_LEASE_WAIT_MILLIS = 1_000L
+        private const val LEASE_POLL_MILLIS = 50L
     }
 }
 

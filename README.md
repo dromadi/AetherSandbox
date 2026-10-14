@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.2**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.3**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -23,6 +23,13 @@ Versi awal: **0.1.0-alpha.2**. Android 8–16 (minSdk 26, targetSdk 36).
 - Tombol **Hentikan guest** menutup runtime dan melepas lease setelah cleanup; kematian proses juga melepas lock melalui OS.
 - Lease tetap dipegang sampai pemuatan IO selesai jika Activity ditutup saat loading.
 - Unit test lease/lifecycle dan pengujian perangkat untuk mutasi yang ditolak saat guest berjalan.
+
+## Pembaruan alpha.3 — kontrol runtime dari host
+
+- Status **Berjalan/Berhenti** per instance dan jumlah guest aktif di layar utama, diperbarui setiap host kembali ke depan.
+- Tombol **Hentikan** dan **Hentikan semua** dari host. Perintah dikirim lewat broadcast yang terbatas pada paket ini ke receiver yang tidak di-export, lalu host menunggu lease dilepas (maks. 5 detik).
+- **Hapus instance** menghentikan guest yang masih berjalan terlebih dahulu.
+- Status dibaca dari lease OS yang sama dengan runtime, sehingga proses guest yang mati tidak meninggalkan status "berjalan" palsu. Runtime mengambil lease di thread IO dan mencoba ulang hingga 1 detik bila bertabrakan dengan probe status.
 
 ## Batas alpha ini
 
@@ -62,7 +69,8 @@ Build host dan fixture pada komputer/CI yang sama agar keduanya menggunakan debu
 5. Impor fixture yang sama lagi. Instance kedua harus memiliki direktori, ID, dan penghitung yang berbeda.
 6. Pilih video lokal. Uji pause/play, ulang, rotasi, cermin, keluar/masuk layar, dan loop.
 7. Tekan **Panel**, berikan izin overlay, lalu tekan lagi. Uji geser/transparansi dan tutup panel melalui panel/notifikasi.
-8. Tekan **Hentikan guest** atau kembali dari layar guest. Kemudian hapus instance. APK, direktori, database, preference namespace, dan cache kode instance tersebut dihapus.
+8. Kembali ke host saat guest masih berjalan: kartu harus menunjukkan **● Berjalan**. Tekan **Hentikan** dari host; status harus kembali **○ Berhenti**.
+9. Tekan **Hentikan guest** atau kembali dari layar guest. Kemudian hapus instance. APK, direktori, database, preference namespace, dan cache kode instance tersebut dihapus.
 
 Untuk instrumented tests:
 
