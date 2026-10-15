@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.10**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.11**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -15,6 +15,13 @@ Versi awal: **0.1.0-alpha.10**. Android 8–16 (minSdk 26, targetSdk 36).
 - Panel video melayang dengan kontrol pause, tutup, geser, dan transparansi. Izin overlay diminta saat pengguna mengaktifkan panel.
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
+
+## Pembaruan alpha.11 — Aether VM, tahap kelayakan G0
+
+- Laboratorium VM pada aplikasi menjalankan diagnostik native dalam proses `:vm_probe`, memeriksa kode RW→RX yang mengembalikan 42, page size, seccomp, akses `/dev/kvm`, fitur/permission AVF, RAM dan penyimpanan. Hasil dapat diekspor sebagai JSON.
+- Probe tidak mengunduh/menjalankan mesin VM. KVM API yang dapat dibaca bukan bukti izin membuat VM. Keberhasilan RW→RX tidak membuktikan port QEMU atau performa TCG.
+- Workflow `VM Linux boot laboratory` membangun kernel ARM64 Linux dan initramfs PID 1 dari source yang dipatok, kemudian melakukan sepuluh boot/poweroff nyata dengan QEMU/TCG pada runner Linux. Ini bukti Linux guest pada Linux CI, bukan Android guest pada HP.
+- APK belum membawa QEMU, image Android, launcher guest atau Android VM aktif. G0 fisik belum selesai. Status rinci: [docs/VM_FEASIBILITY.md](docs/VM_FEASIBILITY.md).
 
 ## Pembaruan alpha.10 — fokus menjalankan APK nyata
 

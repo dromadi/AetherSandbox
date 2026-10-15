@@ -109,6 +109,15 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
             item {
                 Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Aether VM • Laboratorium", style = MaterialTheme.typography.titleLarge)
+                        Text("Periksa kesiapan perangkat dan ekspor hasil. Android virtual penuh belum tersedia.")
+                        OutlinedButton(onClick = { context.startActivity(Intent(context, com.aether.sandbox.vm.VmLabActivity::class.java)) }) { Text("Buka laboratorium VM") }
+                    }
+                }
+            }
+            item {
+                Card {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Video uji", style = MaterialTheme.typography.titleLarge)
                         Text("Preview lokal dengan loop, pause, rotasi, dan cermin. Video ini juga menjadi kamera virtual deterministik untuk fixture yang dijalankan.")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

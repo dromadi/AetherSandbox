@@ -1,0 +1,34 @@
+name: VM Linux boot laboratory
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: vm-lab-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  arm64-linux-tcg:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kernel toolchain and system emulator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libc6-dev-arm64-cross qemu-system-arm flex bison bc libssl-dev libelf-dev
+      - name: Acceptance harness negative cases
+        run: python3 -m unittest discover -s tools/vm -p 'test_*.py'
+      - name: Build pinned test-only ARM64 Linux kernel and PID 1
+        run: bash tools/vm/build-kernel.sh
+      - name: Ten real TCG cold boots to ARM64 userspace and poweroff
+        run: python3 tools/vm/boot_lab.py --kernel build/vm-lab/Image --output build/vm-lab/results --boots 10
+      - name: Boot evidence and source configuration
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-linux-lab-evidence
+          path: |
+            build/vm-lab/results/
+            build/vm-lab/kernel.config
+            build/vm-lab/kernel-source-commit.txt
