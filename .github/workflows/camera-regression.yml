@@ -19,12 +19,13 @@ jobs:
           cmdline-tools-version: '13114758'
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
-      - name: Download the identical immutable base APK and test APK
+      - name: Download the immutable engine APK and its matching test APK
         run: |
-          gh run download 38753945121 --name AetherSandbox-0.1.0-alpha.12-base --dir base
+          gh run download 38753945411 --name AetherSandbox-0.1.0-alpha.12-engine --dir base
           mkdir -p evidence
           cat > repro.sh <<'SH'
-          set -euo pipefail
+          set -euxo pipefail
+          find base -type f
           APK=$(find base -name app-debug.apk -print -quit)
           TEST=$(find base -name app-debug-androidTest.apk -print -quit)
           test -n "$APK"; test -n "$TEST"
