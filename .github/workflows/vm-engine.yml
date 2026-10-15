@@ -1,0 +1,44 @@
+name: Android packaged VM engine
+on:
+  pull_request:
+    paths:
+      - 'tools/vm/build-static-engine.sh'
+      - '.github/workflows/vm-engine.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: vm-engine-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            abi: x86_64
+          - runner: ubuntu-24.04-arm
+            abi: arm64-v8a
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile static QEMU on matching CPU
+        run: |
+          mkdir -p build/vm-engine
+          docker run --rm -v "$PWD/tools/vm:/scripts:ro" -v "$PWD/build/vm-engine:/out" alpine:3.22 sh /scripts/build-static-engine.sh
+      - name: Engine executable and firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-engine-${{ matrix.abi }}
+          path: |
+            build/vm-engine/*.so
+            build/vm-engine/*.txt
+            build/vm-engine/COPYING
+            build/vm-engine/firmware/
+      - name: Configured source and relinking objects
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-engine-source-${{ matrix.abi }}
+          path: build/vm-engine/source/
