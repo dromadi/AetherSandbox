@@ -13,8 +13,9 @@ object PackagedVmEngine {
     fun directory(context: Context) = File(context.filesDir, "vm-android9").apply { mkdirs() }
     fun prepareFirmware(context: Context): File = File(context.filesDir, "vm-firmware").apply {
         mkdirs()
-        for (name in listOf("bios-256k.bin", "vgabios-stdvga.bin", "kvmvapic.bin")) {
-            context.assets.open("vm-firmware/$name").use { source -> File(this, name).outputStream().use { source.copyTo(it) } }
+        for (name in listOf("bios-256k.bin", "vgabios-stdvga.bin", "kvmvapic.bin", "linuxboot_dma.bin", "linuxboot.bin", "keymaps/en-us")) {
+            val target = File(this, name).also { it.parentFile?.mkdirs() }
+            context.assets.open("vm-firmware/$name").use { source -> target.outputStream().use { source.copyTo(it) } }
         }
     }
     suspend fun importIso(context: Context, uri: android.net.Uri) = withContext(Dispatchers.IO) {

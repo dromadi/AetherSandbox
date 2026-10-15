@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import time
+import base64
 
 root = Path(__file__).resolve().parents[2]
 lock = json.loads((root / "tools/vm/engine-lock.json").read_text())
@@ -38,3 +39,12 @@ for abi in lock["abis"]:
     (assets / "vm-engine-provenance").mkdir(parents=True, exist_ok=True)
     for name in ("sha256.txt", "alpine-packages.txt", "source-commit.txt", "version-aarch64.txt", "version-x86_64.txt", "COPYING"):
         shutil.copyfile(stage / name, assets / "vm-engine-provenance" / f"{abi}-{name}")
+# VNC needs its keyboard map even when only raw framebuffer input is used. Fetch the
+# exact text data from the same pinned upstream source, not from the CI host's QEMU.
+for name in ("keymaps/en-us", "linuxboot_dma.bin", "linuxboot.bin"):
+    metadata = json.loads(subprocess.check_output(["gh", "api", f"repos/qemu/qemu/contents/pc-bios/{name}?ref={lock['qemuCommit']}"], text=True))
+    content = base64.b64decode(metadata["content"])
+    assert hashlib.sha1(b"blob " + str(len(content)).encode() + b"\0" + content).hexdigest() == metadata["sha"]
+    target = assets / "vm-firmware" / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)

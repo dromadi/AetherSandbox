@@ -32,7 +32,7 @@ public final class Iso9660 {
                 if (count < 34 || count > root.length - at) throw new IOException("Invalid ISO directory record");
                 int names = root[at + 32] & 255;
                 if (33 + names > count) throw new IOException("Invalid ISO filename");
-                String name = new String(root, at + 33, names, StandardCharsets.US_ASCII).replaceFirst(";[0-9]+$", "");
+                String name = new String(root, at + 33, names, StandardCharsets.US_ASCII).replaceFirst(";[0-9]+$", "").toUpperCase(Locale.ROOT);
                 if (name.equals("KERNEL") || name.equals("INITRD.IMG")) {
                     if ((root[at + 25] & (2 | 128)) != 0 || root[at + 1] != 0 || root[at + 26] != 0 || root[at + 27] != 0)
                         throw new IOException("Unsupported boot extent");

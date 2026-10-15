@@ -21,8 +21,8 @@ public class Iso9660Test {
         byte[] data = new byte[22*2048]; int p=16*2048;
         data[p]=1; System.arraycopy("CD001".getBytes(StandardCharsets.US_ASCII),0,data,p+1,5); data[p+6]=1;
         uint(data,p+158,18); uint(data,p+166,2048);
-        int next=entry(data,18*2048,"KERNEL;1", outOfBounds ? 999999 : 20,3);
-        next=entry(data,next,"INITRD.IMG;1",21,4);
+        int next=entry(data,18*2048,"kernel;1", outOfBounds ? 999999 : 20,3);
+        next=entry(data,next,"initrd.img;1",21,4);
         if (duplicate) entry(data,next,"KERNEL;2",20,3);
         System.arraycopy(new byte[]{1,2,3},0,data,20*2048,3);
         System.arraycopy(new byte[]{4,5,6,7},0,data,21*2048,4);
