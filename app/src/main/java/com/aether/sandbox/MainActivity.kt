@@ -110,8 +110,9 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                 Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Aether VM • Laboratorium", style = MaterialTheme.typography.titleLarge)
-                        Text("Periksa kesiapan perangkat dan ekspor hasil. Android virtual penuh belum tersedia.")
+                        Text("Pemeriksaan perangkat dan boot guest eksperimental. Android-x86 9 memakai image ISO terpisah.")
                         OutlinedButton(onClick = { context.startActivity(Intent(context, com.aether.sandbox.vm.VmLabActivity::class.java)) }) { Text("Buka laboratorium VM") }
+                        OutlinedButton(onClick = { context.startActivity(Intent(context, com.aether.sandbox.vm.AndroidVmActivity::class.java)) }) { Text("Android guest") }
                     }
                 }
             }

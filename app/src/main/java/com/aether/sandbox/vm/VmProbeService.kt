@@ -32,7 +32,7 @@ class VmProbeService : Service() {
                         put("freeStorageBytes", filesDir.usableSpace)
                         put("avfFeature", packageManager.hasSystemFeature("android.software.virtualization_framework"))
                         put("avfManagePermission", checkSelfPermission("android.permission.MANAGE_VIRTUAL_MACHINE") == android.content.pm.PackageManager.PERMISSION_GRANTED)
-                        put("qemuPackaged", false)
+                        put("qemuPackaged", PackagedVmEngine.available(this@VmProbeService))
                         put("androidGuestBooted", false)
                         put("physicalDeviceVerified", false)
                         put("timestampUtcMillis", System.currentTimeMillis())
