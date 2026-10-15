@@ -123,6 +123,11 @@ class AndroidVmActivity : ComponentActivity() {
         setContent { MaterialTheme(colorScheme = darkColorScheme()) {
             val model: AndroidVmModel = viewModel(); vm = model
             val state by model.state.collectAsStateWithLifecycle()
+            DisposableEffect(state.running) {
+                if (state.running) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+            }
             var text by remember { mutableStateOf("") }
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::import) }
             Surface(Modifier.fillMaxSize()) {
