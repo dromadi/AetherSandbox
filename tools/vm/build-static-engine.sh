@@ -6,6 +6,15 @@ apk add --no-cache build-base python3 py3-pip meson ninja git pkgconf \
     glib-dev glib-static pcre2-dev pcre2-static libffi-dev \
     pixman-dev pixman-static zlib-dev zlib-static linux-headers
 mkdir -p /work "$OUT/firmware" "$OUT/source"
+cc -static -O2 -I/scripts /scripts/test-syscall-compat.c -o /work/test-syscall-compat
+/work/test-syscall-compat
+if [ "$(uname -m)" = x86_64 ]; then
+    set +e
+    /work/test-syscall-compat unknown
+    status=$?
+    set -e
+    test "$status" = 159
+fi
 cd /work
 git init qemu
 cd qemu
@@ -13,6 +22,8 @@ git remote add origin https://github.com/qemu/qemu.git
 git fetch --depth=1 origin 4fc49f46dc95d4a27de2509e7fceb2931e91faeb
 git checkout --detach FETCH_HEAD
 test "$(git rev-parse HEAD)" = 4fc49f46dc95d4a27de2509e7fceb2931e91faeb
+cp /scripts/android-syscall-compat.h system/aether-android-syscall-compat.h
+sed -i '/#include "qemu\/osdep.h"/a #include "aether-android-syscall-compat.h"' system/main.c
 export LDFLAGS='-Wl,-z,max-page-size=16384'
 ./configure --target-list=aarch64-softmmu,x86_64-softmmu --static \
     --without-default-features --enable-tcg --enable-vnc --enable-pixman \

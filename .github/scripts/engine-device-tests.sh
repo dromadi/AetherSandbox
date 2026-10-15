@@ -11,7 +11,7 @@ if [ "${VM_FULL_GUEST:-0}" = 1 ]; then
     done
 fi
 mkdir -p build/engine-device-evidence
-adb shell am instrument -w -r -e class com.aether.sandbox.VmEngineTest \
+adb shell am instrument -w -r -e requireVmEngine true -e class com.aether.sandbox.VmEngineTest \
     com.aether.sandbox.test/androidx.test.runner.AndroidJUnitRunner | tee build/engine-device-evidence/instrumentation.txt
 # am instrument itself can return 0 even when JUnit failed.
 if ! rg -q '^OK \(' build/engine-device-evidence/instrumentation.txt; then

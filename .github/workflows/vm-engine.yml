@@ -1,9 +1,11 @@
 name: Android packaged VM engine
 on:
   push:
-    branches: [main]
+    branches: [main, codex/aether-vm-engine]
     paths:
       - 'tools/vm/build-static-engine.sh'
+      - 'tools/vm/android-syscall-compat.h'
+      - 'tools/vm/test-syscall-compat.c'
       - '.github/workflows/vm-engine.yml'
   workflow_dispatch:
 permissions:
