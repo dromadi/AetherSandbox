@@ -41,6 +41,19 @@ class GeneralGuestTest {
             assertEquals("provider:com.aether.sample",
                 File(repository.directory(first.id), "data/files/provider.txt").readText())
             assertFalse(File(repository.directory(second.id), "data/files/provider.txt").exists())
+            val resolver = guest.context.contentResolver
+            val uri = Uri.parse("content://com.aether.sample.init/state")
+            fun value(): String = resolver.query(uri, null, null, null, null)!!.use { cursor ->
+                assertTrue(cursor.moveToFirst()); cursor.getString(0)
+            }
+            assertEquals("empty", value())
+            assertEquals(uri, resolver.insert(uri, android.content.ContentValues().apply { put("value", "alpha") }))
+            assertEquals("alpha", value())
+            assertEquals("alpha", resolver.call(uri, "state", null, null)!!.getString("value"))
+            assertEquals(1, resolver.update(uri, android.content.ContentValues().apply { put("value", "beta") }, null, null))
+            assertEquals("beta", value())
+            assertFalse(host.getSharedPreferences("guest_${second.id}_provider-data", 0).contains("value"))
+            assertEquals(1, resolver.delete(uri, null, null)); assertEquals("empty", value())
             // Resources resolve against the guest APK, not the host.
             assertEquals("Aether Sample App", guest.context.getString(
                 guest.context.resources.getIdentifier("sample_label", "string", "com.aether.sample")))
@@ -55,6 +68,7 @@ class GeneralGuestTest {
                 File(repository.directory(second.id), "data/files/started.txt").exists())
             guest.providers.forEach { it.shutdown() }
             runCatching { guest.application.onTerminate() }
+            guest.framework.close()
         } finally {
             repository.list().filter { it.id == first.id || it.id == second.id }.forEach { repository.delete(it.id) }
             source.delete()

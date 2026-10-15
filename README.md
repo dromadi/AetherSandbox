@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.9**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.10**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -15,6 +15,17 @@ Versi awal: **0.1.0-alpha.9**. Android 8–16 (minSdk 26, targetSdk 36).
 - Panel video melayang dengan kontrol pause, tutup, geser, dan transparansi. Izin overlay diminta saat pengguna mengaktifkan panel.
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
+
+## Pembaruan alpha.10 — fokus menjalankan APK nyata
+
+- Identitas paket guest pada PackageManager (PackageInfo/ApplicationInfo/Activity/Provider/Service metadata, launcher, UID proses) tersedia sebelum Application/Provider mulai; paket lain tetap ditangani Android.
+- ContentResolver CRUD/call guest diarahkan ke Provider lokal proses, tanpa menerbitkan authority ke sistem atau berbagi data antar instance.
+- Context/Application/ActivityInfo dipasang sebelum Activity.attachBaseContext; tema, konfigurasi resource dan jalur APK tetap milik guest, termasuk pemanggilan konfigurasi dari AndroidX.
+- Pencocokan intent-filter manifest, navigasi dari Application context, Parcelable guest, serta pool sembilan jenis Activity per proses untuk menjaga identitas komponen dan flag CLEAR_TOP/SINGLE_TOP.
+- Intent eksternal/file picker diteruskan ke Android; export URI dari Provider guest ke aplikasi lain belum didukung.
+- Tolok ukur baru: APK rilis Simple Calculator 5.12.0 yang tidak dimodifikasi (pin SHA-256, diunduh dari rilis upstream hanya untuk tes). Tes mencoba perhitungan di dua task guest dan stop/relaunch. Hasil aktual wajib dilihat di CI; bukan klaim semua aplikasi kompatibel.
+
+Belum tersedia penuh: Service/receiver guest, notifikasi/permission umum, split APK, Google services dan isolasi UID. Kamera alpha.9 tetap eksperimental dan bukan prioritas upgrade ini.
 
 ## Pembaruan alpha.9 — prototipe Camera2 dari video
 

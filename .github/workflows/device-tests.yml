@@ -32,6 +32,8 @@ jobs:
           sudo rm -rf /usr/share/dotnet /opt/ghc
           df -h /
       - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
+      - name: Pinned upstream APK for real application compatibility test
+        run: bash .github/scripts/prepare-real-apk.sh
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

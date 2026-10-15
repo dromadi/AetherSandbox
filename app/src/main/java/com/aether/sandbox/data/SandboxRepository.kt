@@ -250,6 +250,10 @@ class SandboxRepository(private val context: Context) {
         return info
     }
 
+    fun packageSnapshot(record: SandboxRecord): PackageInfo = archiveInfo(apk(record),
+        PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS or
+            PackageManager.GET_PROVIDERS or PackageManager.GET_PERMISSIONS or PackageManager.GET_DISABLED_COMPONENTS)
+
     fun providerRegistry(record: SandboxRecord): List<android.content.pm.ProviderInfo> =
         archiveInfo(apk(record), PackageManager.GET_PROVIDERS).providers.orEmpty().toList()
 

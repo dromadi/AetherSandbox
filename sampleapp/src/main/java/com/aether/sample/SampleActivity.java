@@ -28,8 +28,13 @@ public final class SampleActivity extends Activity {
             refresh();
         }); layout.addView(save);
         var next = new Button(this); next.setText("Layar kedua");
-        next.setOnClickListener(v -> startActivityForResult(new Intent(this, SampleSecondActivity.class), 41));
+        next.setOnClickListener(v -> startActivityForResult(new Intent("com.aether.sample.OPEN_SECOND").setPackage(getPackageName()).putExtra("payload", new SamplePayload("guest-only")), 41));
         layout.addView(next);
+        var appLaunch = new Button(this); appLaunch.setText("Buka dari Application");
+        appLaunch.setOnClickListener(v -> getApplicationContext().startActivity(new Intent("com.aether.sample.OPEN_SECOND")
+            .setPackage(getPackageName()).putExtra("payload", new SamplePayload("guest-only"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP)));
+        layout.addView(appLaunch);
         var camera = new Button(this); camera.setText("Kamera Camera2");
         camera.setOnClickListener(v -> startActivity(new Intent(this, SampleCameraActivity.class)));
         layout.addView(camera);
@@ -45,8 +50,22 @@ public final class SampleActivity extends Activity {
             });
             network(online, () -> SampleNetworkSession.current(this));
         }
-        setContentView(layout);
+        var provider = new Button(this); provider.setText("Simpan via Provider");
+        var providerStatus = new TextView(this); providerStatus.setText("Provider: " + readProvider());
+        provider.setOnClickListener(v -> {
+            var values = new android.content.ContentValues(); values.put("value", user.getText().toString());
+            getContentResolver().insert(android.net.Uri.parse("content://com.aether.sample.init/state"), values);
+            providerStatus.setText("Provider: " + readProvider());
+        });
+        layout.addView(provider); layout.addView(providerStatus);
+        setContentView(new android.widget.ScrollView(this) {{ addView(layout); }});
         refresh();
+    }
+    private String readProvider() {
+        try (var cursor = getContentResolver().query(android.net.Uri.parse("content://com.aether.sample.init/state"), null, null, null, null)) {
+            if (cursor == null || !cursor.moveToFirst()) throw new IllegalStateException("Provider not routed");
+            return cursor.getString(0);
+        }
     }
     private interface NetworkAction { String run() throws Exception; }
     private void network(TextView output, NetworkAction action) {

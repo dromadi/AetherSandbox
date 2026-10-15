@@ -23,9 +23,10 @@ class VirtualContext(
     private val guestResources: Resources,
     private val guestApplicationInfo: ApplicationInfo? = null,
 ) : ContextWrapper(host) {
+    var activityRouter: ((android.content.Intent) -> android.content.Intent)? = null
     var videoCameraActive: Boolean = false
     fun forActivity(host: Context) = VirtualContext(host, guestRoot, guestPackage, instanceId, loader, guestResources, guestApplicationInfo)
-        .also { it.videoCameraActive = videoCameraActive }
+        .also { it.videoCameraActive = videoCameraActive; it.activityRouter = activityRouter }
     override fun checkSelfPermission(permission: String): Int =
         if (videoCameraActive && permission == android.Manifest.permission.CAMERA)
             android.content.pm.PackageManager.PERMISSION_GRANTED else super.checkSelfPermission(permission)
@@ -43,13 +44,28 @@ class VirtualContext(
         return SandboxPaths.resolve(root, name)
     }
 
+    override fun startActivity(intent: android.content.Intent) = super.startActivity(activityRouter?.invoke(intent) ?: intent)
+    override fun startActivity(intent: android.content.Intent, options: android.os.Bundle?) = super.startActivity(activityRouter?.invoke(intent) ?: intent, options)
+    override fun getPackageCodePath(): String = applicationInfo.sourceDir
+    override fun getPackageResourcePath(): String = applicationInfo.publicSourceDir
+    override fun createPackageContext(packageName: String, flags: Int): Context =
+        if (packageName == guestPackage) this else super.createPackageContext(packageName, flags)
+    override fun createConfigurationContext(overrideConfiguration: android.content.res.Configuration): Context {
+        val config = android.content.res.Configuration(resources.configuration).apply { updateFrom(overrideConfiguration) }
+        @Suppress("DEPRECATION")
+        val updated = Resources(assets, resources.displayMetrics, config)
+        return VirtualContext(baseContext.createConfigurationContext(overrideConfiguration), guestRoot, guestPackage,
+            instanceId, loader, updated, guestApplicationInfo).also {
+            it.application = application; it.activityRouter = activityRouter; it.videoCameraActive = videoCameraActive
+        }
+    }
     override fun getPackageName() = guestPackage
     override fun getApplicationContext(): Context = application ?: this
     override fun getApplicationInfo(): ApplicationInfo = guestApplicationInfo ?: super.getApplicationInfo()
     override fun getClassLoader() = loader
     override fun getResources() = guestResources
     override fun getAssets(): AssetManager = guestResources.assets
-    private val guestTheme by lazy { guestResources.newTheme().apply { applyStyle(android.R.style.Theme_Material_Light_NoActionBar, true) } }
+    private val guestTheme by lazy { guestResources.newTheme().apply { applyStyle(guestApplicationInfo?.theme?.takeIf { it != 0 } ?: android.R.style.Theme_Material_Light_NoActionBar, true) } }
     override fun getTheme(): Resources.Theme = guestTheme
     private val autofillServiceName by lazy { baseContext.getSystemServiceName(android.view.autofill.AutofillManager::class.java) }
     override fun getSystemService(name: String): Any? = when (name) {
@@ -83,14 +99,17 @@ class VirtualContext(
     override fun fileList() = filesDir.list().orEmpty()
     override fun getDatabasePath(name: String) = named(directory("databases"), name)
     override fun openOrCreateDatabase(name: String, mode: Int, factory: SQLiteDatabase.CursorFactory?): SQLiteDatabase {
-        require(mode == MODE_PRIVATE)
-        return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name), factory)
+        require(mode and (MODE_PRIVATE or MODE_ENABLE_WRITE_AHEAD_LOGGING or MODE_NO_LOCALIZED_COLLATORS).inv() == 0)
+        return SQLiteDatabase.openDatabase(getDatabasePath(name).path, factory, databaseFlags(mode))
     }
     override fun openOrCreateDatabase(name: String, mode: Int, factory: SQLiteDatabase.CursorFactory?,
         errorHandler: android.database.DatabaseErrorHandler?): SQLiteDatabase {
-        require(mode == MODE_PRIVATE)
-        return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name).path, factory, errorHandler)
+        require(mode and (MODE_PRIVATE or MODE_ENABLE_WRITE_AHEAD_LOGGING or MODE_NO_LOCALIZED_COLLATORS).inv() == 0)
+        return SQLiteDatabase.openDatabase(getDatabasePath(name).path, factory, databaseFlags(mode), errorHandler)
     }
+    private fun databaseFlags(mode: Int) = SQLiteDatabase.CREATE_IF_NECESSARY or
+        (if (mode and MODE_ENABLE_WRITE_AHEAD_LOGGING != 0) SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING else 0) or
+        (if (mode and MODE_NO_LOCALIZED_COLLATORS != 0) SQLiteDatabase.NO_LOCALIZED_COLLATORS else 0)
     override fun databaseList() = directory("databases").list().orEmpty()
     override fun deleteDatabase(name: String) = SQLiteDatabase.deleteDatabase(getDatabasePath(name))
     override fun getSharedPreferences(name: String, mode: Int): SharedPreferences {

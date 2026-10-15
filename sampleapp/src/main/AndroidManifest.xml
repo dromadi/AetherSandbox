@@ -4,7 +4,9 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <application android:label="@string/sample_label" android:name=".SampleApplication">
         <activity android:name=".SampleCameraActivity" android:exported="false" />
-        <activity android:name=".SampleSecondActivity" android:exported="false" />
+        <activity android:name=".SampleSecondActivity" android:exported="false">
+            <intent-filter><action android:name="com.aether.sample.OPEN_SECOND" /><category android:name="android.intent.category.DEFAULT" /></intent-filter>
+        </activity>
         <activity android:name=".SampleActivity" android:exported="true">
         </activity>
         <activity-alias android:name=".DisabledLauncher" android:targetActivity=".SampleActivity" android:enabled="false" android:exported="true">

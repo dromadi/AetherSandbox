@@ -24,6 +24,38 @@
         <activity android:name=".core.GuestStubActivity1" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
         <activity android:name=".core.GuestStubActivity2" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
         <activity android:name=".core.GuestStubActivity3" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
+        <activity android:name=".core.GuestSlot0Activity0" android:exported="false" android:process=":virtual_process" android:taskAffinity="com.aether.sandbox.slot0" />
+        <activity android:name=".core.GuestSlot0Activity1" android:exported="false" android:process=":virtual_process" android:taskAffinity="com.aether.sandbox.slot0" />
+        <activity android:name=".core.GuestSlot0Activity2" android:exported="false" android:process=":virtual_process" android:taskAffinity="com.aether.sandbox.slot0" />
+        <activity android:name=".core.GuestSlot0Activity3" android:exported="false" android:process=":virtual_process" android:taskAffinity="com.aether.sandbox.slot0" />
+        <activity android:name=".core.GuestSlot0Activity4" android:exported="false" android:process=":virtual_process" android:taskAffinity="com.aether.sandbox.slot0" />
+        <activity android:name=".core.GuestSlot0Activity5" android:exported="false" android:process=":virtual_process" android:taskAffinity="com.aether.sandbox.slot0" />
+        <activity android:name=".core.GuestSlot0Activity6" android:exported="false" android:process=":virtual_process" android:taskAffinity="com.aether.sandbox.slot0" />
+        <activity android:name=".core.GuestSlot0Activity7" android:exported="false" android:process=":virtual_process" android:taskAffinity="com.aether.sandbox.slot0" />
+        <activity android:name=".core.GuestSlot1Activity0" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
+        <activity android:name=".core.GuestSlot1Activity1" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
+        <activity android:name=".core.GuestSlot1Activity2" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
+        <activity android:name=".core.GuestSlot1Activity3" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
+        <activity android:name=".core.GuestSlot1Activity4" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
+        <activity android:name=".core.GuestSlot1Activity5" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
+        <activity android:name=".core.GuestSlot1Activity6" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
+        <activity android:name=".core.GuestSlot1Activity7" android:exported="false" android:process=":virtual_process1" android:taskAffinity="com.aether.sandbox.slot1" />
+        <activity android:name=".core.GuestSlot2Activity0" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
+        <activity android:name=".core.GuestSlot2Activity1" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
+        <activity android:name=".core.GuestSlot2Activity2" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
+        <activity android:name=".core.GuestSlot2Activity3" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
+        <activity android:name=".core.GuestSlot2Activity4" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
+        <activity android:name=".core.GuestSlot2Activity5" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
+        <activity android:name=".core.GuestSlot2Activity6" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
+        <activity android:name=".core.GuestSlot2Activity7" android:exported="false" android:process=":virtual_process2" android:taskAffinity="com.aether.sandbox.slot2" />
+        <activity android:name=".core.GuestSlot3Activity0" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
+        <activity android:name=".core.GuestSlot3Activity1" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
+        <activity android:name=".core.GuestSlot3Activity2" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
+        <activity android:name=".core.GuestSlot3Activity3" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
+        <activity android:name=".core.GuestSlot3Activity4" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
+        <activity android:name=".core.GuestSlot3Activity5" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
+        <activity android:name=".core.GuestSlot3Activity6" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
+        <activity android:name=".core.GuestSlot3Activity7" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
         <activity android:name=".core.RuntimeRouterActivity" android:exported="false" />
         <service android:name=".media.FloatingAssistantService" android:exported="false"
             android:foregroundServiceType="mediaPlayback" />

@@ -32,6 +32,7 @@ open class ProxyActivity : ComponentActivity() {
     private var guest: GuestLifecycle? = null
     private var autoLaunchWhenResumed = false
     private var activityRuntime: GuestActivityRuntime? = null
+    private var frameworkBridge: GuestFrameworkBridge? = null
     private var providers: List<android.content.ContentProvider> = emptyList()
     private var generalApp: android.app.Application? = null
     @Volatile private var lease: RuntimeLease? = null
@@ -73,6 +74,7 @@ open class ProxyActivity : ComponentActivity() {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
+                Log.e("AetherRuntime", "Guest startup failed", error)
                 journal?.record("FAILED", "${error.javaClass.name}: ${error.message}")
                 closeGuest()
                 loading.text = "Guest gagal dimuat: ${error.message}"
@@ -112,6 +114,7 @@ open class ProxyActivity : ComponentActivity() {
         bridge.attachApplication(loaded.application)
         generalApp = loaded.application
         providers = loaded.providers
+        frameworkBridge = loaded.framework
         val c = loaded.components
         val report = buildString {
             append("Kode dan resource guest dimuat di direktori per instance (UID host sama).\n\n")
@@ -123,7 +126,7 @@ open class ProxyActivity : ComponentActivity() {
             append("• Activity: ${c.activities.size}   • Service: ${c.services.size}\n")
             append("• Provider: ${c.providers.size}   • Receiver: ${c.receivers.size}\n")
             append("Launcher: ${c.launcher ?: "tidak ada"}\n\n")
-            append("Activity guest memakai proxy Android (eksperimental). Service, resolver Provider, intent implisit, dan flag task khusus belum didukung.")
+            append("Activity guest memakai proxy Android (eksperimental). Provider lokal, identitas paket, dan navigasi guest tersedia. Service/receiver, notifikasi, split APK dan task flag lanjutan belum lengkap.")
         }
         setContentView(runtimeFrame("Aether runtime • aplikasi umum") {
             addView(Button(this@ProxyActivity).apply {
@@ -188,6 +191,10 @@ open class ProxyActivity : ComponentActivity() {
         generalApp = null
         runCatching { app?.onTerminate() }.onFailure { Log.e("AetherRuntime", "Guest terminate failed", it) }
         // After the guest's own onDestroy, so a guest that stops its camera there wins the race.
+        frameworkBridge?.close()
+        frameworkBridge = null
+        activityRuntime?.close()
+        activityRuntime = null
         cameraBridge?.close()
         cameraBridge = null
         camera?.close()

@@ -7,25 +7,19 @@ import com.aether.sandbox.data.SandboxRepository
 import dalvik.system.DexClassLoader
 import java.io.File
 
-/**
- * A loaded third-party (non-fixture) guest: its own classes and resources, with its [Application]
- * subclass instantiated and attached to a per-instance [VirtualContext].
- *
- * Milestone 1 of general-app support. This runs the guest's code and Application lifecycle in an
- * isolated storage/resource context; it does NOT yet launch the guest's Activities, Services or
- * Providers (that needs ActivityManager/Binder interception). The guest shares the host UID, so
- * this is cooperative virtualization, not a security sandbox.
- */
+/** Loaded Android guest with process-local package identity, Providers and Activity routing. Same host UID. */
 data class GeneralGuest(
     val context: VirtualContext,
     val application: Application,
     val components: com.aether.sandbox.data.GuestComponents,
     val providers: List<android.content.ContentProvider>,
+    val framework: GuestFrameworkBridge,
 )
 
 data class PreparedGuest(val context: VirtualContext, val applicationClass: Class<out Application>,
     val components: com.aether.sandbox.data.GuestComponents,
-    val providers: List<android.content.pm.ProviderInfo>)
+    val providers: List<android.content.pm.ProviderInfo>,
+    val packageInfo: android.content.pm.PackageInfo, val intents: GuestIntentRegistry)
 
 object GeneralGuestLoader {
     /** IO-only preparation. The caller starts the Application on Android's main thread. */
@@ -42,6 +36,7 @@ object GeneralGuestLoader {
         val native = com.aether.sandbox.domain.NativeLibraries.extract(apk,
             File(repository.directory(record.id), "native"), android.os.Build.SUPPORTED_ABIS.toList()
                 .filter { it.contains("64") == android.os.Process.is64Bit() })
+        appInfo.uid = android.os.Process.myUid()
         appInfo.dataDir = dataRoot.path
         appInfo.nativeLibraryDir = native?.path
         val loader = DexClassLoader(apk.path, optimized.path, native?.path,
@@ -50,14 +45,23 @@ object GeneralGuestLoader {
 
         val className = appInfo.className ?: Application::class.java.name
         val applicationClass = loader.loadClass(className).asSubclass(Application::class.java)
-        return PreparedGuest(context, applicationClass, components, repository.providerRegistry(record))
+        val snapshot = repository.packageSnapshot(record).apply {
+            applicationInfo = appInfo
+            listOf(activities, services, receivers, providers).forEach { items -> items?.forEach { it.applicationInfo = appInfo } }
+        }
+        val intents = GuestIntentRegistry.read(host, appInfo, snapshot.activities.orEmpty().toList())
+        return PreparedGuest(context, applicationClass, components, repository.providerRegistry(record), snapshot, intents)
     }
 
     fun start(prepared: PreparedGuest): GeneralGuest {
         check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) { "Application harus dimulai di main thread" }
-        val application = prepared.applicationClass.getDeclaredConstructor().newInstance()
-        attach(application, prepared.context)
-        prepared.context.application = application
+        val framework = GuestFrameworkBridge.install(prepared.context, prepared.packageInfo, prepared.intents)
+        val application: Application
+        try {
+            application = prepared.applicationClass.getDeclaredConstructor().newInstance()
+            attach(application, prepared.context)
+            prepared.context.application = application
+        } catch (failure: Throwable) { framework.close(); throw failure }
         // Android initializes same-process providers after Application.attach, before onCreate.
         // Keep them process-local: authorities are NOT published to the host/system resolver.
         val providers = mutableListOf<android.content.ContentProvider>()
@@ -72,12 +76,14 @@ object GeneralGuestLoader {
                     .asSubclass(android.content.ContentProvider::class.java).getDeclaredConstructor().newInstance()
                 providers += provider
                 val info = android.content.pm.ProviderInfo(source).apply { applicationInfo = appInfo }
+                framework.publish(provider, info)
                 provider.attachInfo(prepared.context, info)
             }
             application.onCreate()
-            return GeneralGuest(prepared.context, application, prepared.components, providers)
+            return GeneralGuest(prepared.context, application, prepared.components, providers, framework)
         } catch (failure: Throwable) {
             providers.asReversed().forEach { runCatching { it.shutdown() } }
+            framework.close()
             prepared.context.application = null
             throw failure
         }
