@@ -66,9 +66,17 @@ class GuestActivityRuntime private constructor(
     }
 
     private fun guestIntent(source: Intent): Intent {
-        source.setExtrasClassLoader(prepared.context.classLoader)
-        val name = requireNotNull(source.getStringExtra(EXTRA_COMPONENT))
-        return Intent(source).setComponent(ComponentName(record.packageName, name)).apply {
+        // Framework inspection can already have created lazy Parcelable values using the host
+        // loader. A new parcel boundary discards those captured loaders before guest decoding.
+        val parcel = android.os.Parcel.obtain()
+        val decoded = try {
+            source.writeToParcel(parcel, 0)
+            parcel.setDataPosition(0)
+            Intent.CREATOR.createFromParcel(parcel)
+        } finally { parcel.recycle() }
+        decoded.setExtrasClassLoader(prepared.context.classLoader)
+        val name = requireNotNull(decoded.getStringExtra(EXTRA_COMPONENT))
+        return decoded.setComponent(ComponentName(record.packageName, name)).apply {
             removeExtra(EXTRA_COMPONENT); removeExtra(ProxyActivity.EXTRA_ID)
             setExtrasClassLoader(prepared.context.classLoader)
         }
