@@ -20,6 +20,7 @@ class GeneralGuestTest {
         val repository = SandboxRepository(host)
         val first = repository.importApk(Uri.fromFile(source))
         val second = repository.importApk(Uri.fromFile(source))
+        var active: com.aether.sandbox.core.GeneralGuest? = null
         try {
             // A plain third-party app carries no GuestEntry metadata.
             assertFalse(first.trustedFixture)
@@ -27,7 +28,7 @@ class GeneralGuestTest {
 
             val prepared = GeneralGuestLoader.prepare(host, first, repository)
             lateinit var guest: com.aether.sandbox.core.GeneralGuest
-            instrumentation.runOnMainSync { guest = GeneralGuestLoader.start(prepared) }
+            instrumentation.runOnMainSync { guest = GeneralGuestLoader.start(prepared); active = guest }
             assertEquals("com.aether.sample.SampleApplication", guest.application.javaClass.name)
             // Component registry: two activities, one service, one receiver; launcher is not the first manifest Activity.
             val components = guest.components
@@ -54,6 +55,9 @@ class GeneralGuestTest {
             assertEquals("beta", value())
             assertFalse(host.getSharedPreferences("guest_${second.id}_provider-data", 0).contains("value"))
             assertEquals(1, resolver.delete(uri, null, null)); assertEquals("empty", value())
+            assertTrue(guest.context.getExternalFilesDir(null).path.endsWith("/Android/data/com.aether.sample/files"))
+            assertTrue(guest.context.externalCacheDir.path.endsWith("/Android/data/com.aether.sample/cache"))
+            assertTrue(guest.context.getExternalFilesDir(null).canonicalPath.startsWith(repository.directory(first.id).canonicalPath + "/"))
             // Resources resolve against the guest APK, not the host.
             assertEquals("Aether Sample App", guest.context.getString(
                 guest.context.resources.getIdentifier("sample_label", "string", "com.aether.sample")))
@@ -66,10 +70,12 @@ class GeneralGuestTest {
             assertEquals("onCreate:com.aether.sample", markerFirst.readText())
             assertFalse("Instances must not share storage",
                 File(repository.directory(second.id), "data/files/started.txt").exists())
-            guest.providers.forEach { it.shutdown() }
-            runCatching { guest.application.onTerminate() }
-            guest.framework.close()
+
         } finally {
+            active?.let { guest ->
+                guest.providers.forEach { runCatching { it.shutdown() } }
+                runCatching { guest.application.onTerminate() }; guest.framework.close()
+            }
             repository.list().filter { it.id == first.id || it.id == second.id }.forEach { repository.delete(it.id) }
             source.delete()
         }

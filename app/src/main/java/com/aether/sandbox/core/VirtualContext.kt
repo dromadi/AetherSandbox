@@ -80,10 +80,14 @@ class VirtualContext(
     override fun getCodeCacheDir() = directory("code_cache")
     override fun getDataDir() = guestRoot
     override fun getNoBackupFilesDir() = directory("no_backup")
-    override fun getExternalFilesDir(type: String?): File = if (type == null) directory("external")
-        else named(directory("external"), type).apply { mkdirs() }
+    // Android apps commonly derive the storage root by locating /Android/data in this path.
+    // Preserve that shape while keeping every byte beneath this instance's own data root.
+    private fun externalAppDir(child: String): File = directory("external/Android/data/$guestPackage/$child")
+    override fun getExternalFilesDir(type: String?): File = if (type == null) externalAppDir("files")
+        else named(externalAppDir("files"), type).apply { mkdirs() }
     override fun getExternalFilesDirs(type: String?) = arrayOf(getExternalFilesDir(type))
-    override fun getExternalCacheDir() = directory("external_cache")
+    override fun getExternalCacheDir() = externalAppDir("cache")
+    override fun getExternalMediaDirs() = arrayOf(directory("external/Android/media/$guestPackage"))
     override fun getExternalCacheDirs() = arrayOf(externalCacheDir)
     override fun getDir(name: String, mode: Int): File {
         require(mode == MODE_PRIVATE)

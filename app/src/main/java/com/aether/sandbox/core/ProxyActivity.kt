@@ -65,6 +65,9 @@ open class ProxyActivity : ComponentActivity() {
                 val previous = Thread.getDefaultUncaughtExceptionHandler()
                 Thread.setDefaultUncaughtExceptionHandler { thread, error ->
                     journal?.record("CRASHED", "${error.javaClass.name}: ${error.message}")
+                    // Some OS crash handlers wait for a dialog and never return (notably API 26).
+                    // Arm termination before delegating so a dead guest cannot retain instance/slot leases.
+                    Thread({ android.os.SystemClock.sleep(250); Process.killProcess(Process.myPid()) }, "aether-crash-stop").start()
                     previous?.uncaughtException(thread, error)
                     Process.killProcess(Process.myPid())
                 }
