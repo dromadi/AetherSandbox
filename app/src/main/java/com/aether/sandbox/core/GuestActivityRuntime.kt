@@ -26,7 +26,7 @@ class GuestActivityRuntime private constructor(
     private val pending = WeakHashMap<Activity, Pair<ActivityInfo, Intent>>()
     private var application: android.app.Application? = null
     private val routed = linkedMapOf<String, Class<out Activity>>()
-    private var attachHook: de.robv.android.xposed.XC_MethodHook.Unhook? = null
+    private val attachHooks = mutableListOf<de.robv.android.xposed.XC_MethodHook.Unhook>()
     private var restoreInstrumentation: (() -> Unit)? = null
     private fun stubFor(component: String): Class<out Activity> = routed.getOrPut(component) {
         val pool = POOLS[owner.slot]
@@ -132,14 +132,19 @@ class GuestActivityRuntime private constructor(
     override fun callActivityOnUserLeaving(activity: Activity) = original.callActivityOnUserLeaving(activity)
 
     private fun installAttachHook() {
-        val method = Activity::class.java.declaredMethods.single { it.name == "attach" && it.parameterTypes.firstOrNull() == Context::class.java }
-        attachHook = de.robv.android.xposed.XposedBridge.hookMethod(method, object : de.robv.android.xposed.XC_MethodHook() {
+        val methods = Activity::class.java.declaredMethods.filter {
+            it.name == "attach" && it.parameterTypes.firstOrNull() == Context::class.java &&
+                it.parameterTypes.contains(ActivityInfo::class.java)
+        }
+        check(methods.isNotEmpty()) { "Activity.attach tidak tersedia" }
+        // API 36 has delegating overloads. Hook every supported shape, wrapping its Context once.
+        methods.forEach { method -> attachHooks += de.robv.android.xposed.XposedBridge.hookMethod(method, object : de.robv.android.xposed.XC_MethodHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 val activity = param.thisObject as? Activity ?: return
                 val entry = pending[activity] ?: return
                 try {
                     val app = requireNotNull(application) { "Application guest belum siap" }
-                    param.args[0] = prepared.context.forActivity(param.args[0] as Context).also { it.application = app }
+                    if (param.args[0] !is VirtualContext) param.args[0] = prepared.context.forActivity(param.args[0] as Context).also { it.application = app }
                     method.parameterTypes.forEachIndexed { index, type ->
                         when (type) {
                             android.app.Application::class.java -> param.args[index] = app
@@ -156,10 +161,10 @@ class GuestActivityRuntime private constructor(
                     }
                 } catch (error: Throwable) { param.throwable = error }
             }
-        })
+        }) }
     }
     override fun close() {
-        attachHook?.unhook(); attachHook = null
+        attachHooks.forEach { it.unhook() }; attachHooks.clear()
         prepared.context.activityRouter = null
         restoreInstrumentation?.invoke(); restoreInstrumentation = null
     }
