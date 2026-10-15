@@ -1,0 +1,78 @@
+name: VM evidence inspection
+on:
+  push:
+    branches: [codex/aether-vm-evidence]
+    paths: ['.github/workflows/vm-evidence.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: dromadi/AetherSandbox
+    steps:
+      - name: Inspect regression failure without changing its result
+        run: |
+          gh run download 38753945320 --name device-reports-api-26 --dir regression
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as E
+          for p in Path('regression').rglob('*.xml'):
+              try: root = E.parse(p).getroot()
+              except E.ParseError: continue
+              for case in root.iter('testcase'):
+                  if case.find('failure') is not None:
+                      print('FAILED_CASE', E.tostring(case, encoding='unicode')[:30000])
+          PY
+      - name: Inspect packaged APK hashes
+        run: |
+          gh run download 38753945411 --name AetherSandbox-0.1.0-alpha.12-engine --dir apk
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          for p in Path('apk').rglob('*.apk'):
+              print('APK_INFO', json.dumps(dict(path=str(p), bytes=p.stat().st_size, sha256=hashlib.sha256(p.read_bytes()).hexdigest())))
+          PY
+      - name: Wait for full guest evidence
+        run: |
+          for round in $(seq 1 90); do
+            state=$(gh api repos/dromadi/AetherSandbox/actions/runs/38753945411 --jq .status)
+            if [ "$state" = completed ]; then break; fi
+            echo "Waiting for guest acceptance job: $state"
+            sleep 15
+          done
+          gh run download 38753945411 --name vm-engine-device-api-34 --dir evidence
+      - name: Emit bounded boot report and actual guest frame for review
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import tarfile, json, re, base64, textwrap, struct
+          p = Path('evidence/guest-evidence.tar')
+          if not p.is_file():
+              print('NO_GUEST_ARCHIVE'); raise SystemExit(0)
+          with tarfile.open(p) as archive:
+              allowed = {m.name:m for m in archive.getmembers() if m.isfile() and re.fullmatch(r'(frame-(?:[0-9]+|settings)\.png|console\.log|android-boot-report\.json)',m.name)}
+              print('EVIDENCE_FILES', list(allowed))
+              if 'android-boot-report.json' in allowed:
+                  f=archive.extractfile(allowed['android-boot-report.json'])
+                  print('AETHER_BOOT_REPORT', f.read(65536).decode())
+              frames = [n for n in allowed if n.startswith('frame-') and n.endswith('.png')]
+              name = 'frame-settings.png' if 'frame-settings.png' in frames else max(frames,key=lambda n:int(n[6:-4]),default=None)
+              if name:
+                  member=allowed[name]
+                  assert member.size < 2*1024*1024
+                  data=archive.extractfile(member).read()
+                  assert data[:8]==b'\x89PNG\r\n\x1a\n'
+                  w,h=struct.unpack('>II',data[16:24]); assert 0<w<=2048 and 0<h<=2048
+                  print('AETHER_FRAME_NAME',name,w,h)
+                  print('AETHER_FRAME_PNG_BEGIN')
+                  print('\n'.join(textwrap.wrap(base64.b64encode(data).decode(),76)))
+                  print('AETHER_FRAME_PNG_END')
+              if 'console.log' in allowed:
+                  m=allowed['console.log']; assert m.size <= 5*1024*1024
+                  data=archive.extractfile(m).read().decode(errors='replace')
+                  print('AETHER_CONSOLE_TAIL',data[-12000:])
+          PY
