@@ -4,10 +4,17 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import time
 
 root = Path(__file__).resolve().parents[2]
 lock = json.loads((root / "tools/vm/engine-lock.json").read_text())
-run = json.loads(subprocess.check_output(["gh", "api", f"repos/{lock['repository']}/actions/runs/{lock['workflowRun']}"], text=True))
+for attempt in range(80):
+    run = json.loads(subprocess.check_output(["gh", "api", f"repos/{lock['repository']}/actions/runs/{lock['workflowRun']}"], text=True))
+    assert run["head_sha"] == lock["workflowHead"], "Engine workflow head changed"
+    if run["status"] == "completed":
+        break
+    print("Waiting for pinned source-built engine", flush=True)
+    time.sleep(15)
 assert run["head_sha"] == lock["workflowHead"] and run["conclusion"] == "success", "Pinned engine run not successful"
 assets = root / "app/build/generated/vmEngineAssets"
 for abi in lock["abis"]:

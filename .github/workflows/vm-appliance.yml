@@ -44,6 +44,10 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/cache@v4
+        with:
+          path: build/vm-lab/Image
+          key: vm-linux-fixture-v1-${{ hashFiles('tools/vm/build-kernel.sh', 'tools/vm/init.c') }}
       - name: Stage pinned source-built engines
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,7 +59,7 @@ jobs:
           sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
       - name: Build Linux fixture and stage assets
         run: |
-          bash tools/vm/build-kernel.sh
+          if [ ! -f build/vm-lab/Image ]; then bash tools/vm/build-kernel.sh; fi
           cp build/vm-lab/Image app/build/generated/vmEngineAssets/vm-linux-Image
           bash .github/scripts/prepare-real-apk.sh
       - name: Compile and verify packaged engine APK
