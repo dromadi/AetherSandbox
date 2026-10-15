@@ -13,13 +13,17 @@ fi
 mkdir -p build/engine-device-evidence
 adb shell am instrument -w -r -e requireVmEngine true -e class com.aether.sandbox.VmEngineTest \
     com.aether.sandbox.test/androidx.test.runner.AndroidJUnitRunner | tee build/engine-device-evidence/instrumentation.txt
-# am instrument itself can return 0 even when JUnit failed.
-if ! rg -q '^OK \(' build/engine-device-evidence/instrumentation.txt; then
+if [ "${VM_FULL_GUEST:-0}" = 1 ]; then
+    mapfile -t evidence_files < <(adb shell run-as com.aether.sandbox ls files/vm-android9 | tr -d '\r' | \
+      grep -E '^(frame-[0-9]+\.png|console\.log|android-boot-report\.json)$' || true)
+    if [ "${#evidence_files[@]}" -gt 0 ]; then
+        adb exec-out run-as com.aether.sandbox tar -cf - -C files/vm-android9 "${evidence_files[@]}" \
+          > build/engine-device-evidence/guest-evidence.tar || true
+    fi
+fi
+# am instrument itself can return 0 even when JUnit failed. POSIX grep is available
+# on the runner; ripgrep is not an assumed runtime dependency of this script.
+if ! grep -Eq '^OK \([0-9]+ tests?\)' build/engine-device-evidence/instrumentation.txt; then
     adb logcat -d -b crash > build/engine-device-evidence/crash.log
     exit 1
-fi
-if [ "${VM_FULL_GUEST:-0}" = 1 ]; then
-    adb exec-out run-as com.aether.sandbox tar -cf - -C files/vm-android9 \
-      console.log android-boot-report.json $(for i in $(seq 0 19); do printf 'frame-%s.png ' "$i"; done) \
-      > build/engine-device-evidence/guest-evidence.tar || true
 fi
