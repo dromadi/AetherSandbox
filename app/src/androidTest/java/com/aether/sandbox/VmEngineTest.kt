@@ -65,7 +65,7 @@ class VmEngineTest {
                 .put("displayFrames", frames).put("sysBootCompletedVerified", booted)
                 .put("physicalPhoneVerified", false).toString(2))
             assertTrue("No display frames received", frames > 0)
-            // The property is recorded independently: a display alone must never claim Android ready.
+            assertTrue("Guest did not finish Android boot; see console.log and saved display frames", booted)
         } finally { withContext(Dispatchers.Main) { model.stop(); activity.finish() } }
     }
 }

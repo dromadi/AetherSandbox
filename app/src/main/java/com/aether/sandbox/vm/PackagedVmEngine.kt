@@ -13,7 +13,7 @@ object PackagedVmEngine {
     fun directory(context: Context) = File(context.filesDir, "vm-android9").apply { mkdirs() }
     fun prepareFirmware(context: Context): File = File(context.filesDir, "vm-firmware").apply {
         mkdirs()
-        for (name in listOf("bios-256k.bin", "vgabios-stdvga.bin", "kvmvapic.bin", "linuxboot_dma.bin", "linuxboot.bin", "keymaps/en-us")) {
+        for (name in listOf("bios-256k.bin", "vgabios-stdvga.bin", "kvmvapic.bin", "linuxboot_dma.bin", "keymaps/en-us")) {
             val target = File(this, name).also { it.parentFile?.mkdirs() }
             context.assets.open("vm-firmware/$name").use { source -> target.outputStream().use { source.copyTo(it) } }
         }
@@ -62,7 +62,7 @@ object PackagedVmEngine {
             "-usb", "-device", "usb-tablet", "-kernel", File(root, "kernel").path,
             "-initrd", File(root, "initrd.img").path,
             "-drive", "file=${File(root, "guest.iso").path},format=raw,media=cdrom,readonly=on",
-            "-append", "root=/dev/ram0 androidboot.hardware=android_x86 SRC=/ DATA= console=tty0 console=ttyS0,115200 androidboot.console=ttyS0 nomodeset xforcevesa vga=788 HWACCEL=0")
+            "-append", "root=/dev/ram0 androidboot.hardware=android_x86_64 SRC=/ DATA= console=tty0 console=ttyS0,115200 androidboot.console=ttyS0 nomodeset xforcevesa vga=835 HWACCEL=0")
     }
     suspend fun linuxBoot(context: Context): String = withContext(Dispatchers.IO) {
         require(available(context)) { "APK ini belum membawa engine untuk ABI perangkat" }

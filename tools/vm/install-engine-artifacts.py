@@ -41,7 +41,7 @@ for abi in lock["abis"]:
         shutil.copyfile(stage / name, assets / "vm-engine-provenance" / f"{abi}-{name}")
 # VNC needs its keyboard map even when only raw framebuffer input is used. Fetch the
 # exact text data from the same pinned upstream source, not from the CI host's QEMU.
-for name in ("keymaps/en-us", "linuxboot_dma.bin", "linuxboot.bin"):
+for name in ("keymaps/en-us", "linuxboot_dma.bin"):
     metadata = json.loads(subprocess.check_output(["gh", "api", f"repos/qemu/qemu/contents/pc-bios/{name}?ref={lock['qemuCommit']}"], text=True))
     content = base64.b64decode(metadata["content"])
     assert hashlib.sha1(b"blob " + str(len(content)).encode() + b"\0" + content).hexdigest() == metadata["sha"]
