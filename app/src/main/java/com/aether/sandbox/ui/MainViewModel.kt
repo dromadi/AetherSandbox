@@ -17,6 +17,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class UiState(
+    val installedApps: List<com.aether.sandbox.data.InstalledApp>? = null,
     val records: List<SandboxRecord> = emptyList(),
     val running: Set<String> = emptySet(),
     val busy: Boolean = false,
@@ -55,6 +56,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refresh() = operation { }
+    fun showInstalledApps() = operation { mutableState.update { it.copy(installedApps = repository.installedApps()) } }
+    fun dismissInstalledApps() { mutableState.update { it.copy(installedApps = null) } }
+    fun importInstalled(packageName: String) = operation("Aplikasi berhasil disalin ke instance baru") {
+        repository.importInstalled(packageName)
+        mutableState.update { it.copy(installedApps = null) }
+    }
     fun importApk(uri: Uri) = operation("APK berhasil diimpor") { repository.importApk(uri) }
     fun stop(id: String) = operation("Guest dihentikan") { repository.stop(id) }
     fun stopAll() = operation("Semua guest dihentikan") { repository.runningIds().forEach(repository::stop) }

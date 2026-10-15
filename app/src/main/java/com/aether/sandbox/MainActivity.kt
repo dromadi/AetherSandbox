@@ -87,13 +87,13 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
             contentPadding = PaddingValues(vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
                 Text("AetherSandbox", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("VirtuBox Core • 0.1.0-alpha.7", color = MaterialTheme.colorScheme.secondary)
+                Text("VirtuBox Core • ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.secondary)
             }
             item {
                 Card {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Laboratorium Android", style = MaterialTheme.typography.titleLarge)
-                        Text("Impor APK, kelola instance, jalankan fixture penuh atau muat aplikasi umum dengan data terpisah.")
+                        Text("Jalankan aplikasi", style = MaterialTheme.typography.titleLarge)
+                        Text("Pilih aplikasi dari HP atau berkas APK, lalu buat instance dengan data terpisah.")
                         Text("Android ${Build.VERSION.RELEASE} • $abi • ${state.records.size} instance • ${state.running.size} berjalan",
                             style = MaterialTheme.typography.bodySmall)
                         Text("Empat slot runtime. Activity APK umum memakai proxy eksperimental. Semua guest memakai UID host; jalankan APK yang Anda percayai.", color = MaterialTheme.colorScheme.secondary,
@@ -101,6 +101,7 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                         Button(enabled = !state.busy, onClick = { import.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream")) }) {
                             Text("Impor APK")
                         }
+                        OutlinedButton(enabled = !state.busy, onClick = model::showInstalledApps) { Text("Pilih aplikasi dari HP") }
                     }
                 }
             }
@@ -196,6 +197,23 @@ private fun AetherScreen(model: MainViewModel = viewModel()) {
                 }
             }
         }
+    }
+    state.installedApps?.let { apps ->
+        AlertDialog(onDismissRequest = model::dismissInstalledApps,
+            title = { Text("Pilih aplikasi") },
+            text = {
+                if (apps.isEmpty()) Text("Tidak ada aplikasi launcher yang dapat dibaca.")
+                else LazyColumn(Modifier.heightIn(max = 380.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(apps, key = { it.packageName }) { app ->
+                        OutlinedButton(enabled = !state.busy && !app.split, onClick = { model.importInstalled(app.packageName) }, modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(app.label)
+                                Text(if (app.split) "Split APK belum didukung" else "${app.packageName} • ${app.version}", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }, confirmButton = { TextButton(onClick = model::dismissInstalledApps) { Text("Tutup") } })
     }
     launching?.let { record ->
         AlertDialog(onDismissRequest = { launching = null }, title = { Text("Jalankan kode APK?") },
