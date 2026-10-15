@@ -1,0 +1,57 @@
+name: VM camera regression reproduction
+on:
+  push:
+    branches: [codex/aether-vm-evidence]
+    paths: ['.github/workflows/camera-regression.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  camera26:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: dromadi/AetherSandbox
+    steps:
+      - uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '13114758'
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Download the identical immutable base APK and test APK
+        run: |
+          gh run download 38753945121 --name AetherSandbox-0.1.0-alpha.12-base --dir base
+          mkdir -p evidence
+          cat > repro.sh <<'SH'
+          set -euo pipefail
+          APK=$(find base -name app-debug.apk -print -quit)
+          TEST=$(find base -name app-debug-androidTest.apk -print -quit)
+          test -n "$APK"; test -n "$TEST"
+          sha256sum "$APK" "$TEST" > evidence/apk-sha256.txt
+          adb install -r "$APK"
+          adb install -r "$TEST"
+          adb logcat -c
+          adb shell am instrument -w -r -e class com.aether.sandbox.Camera2VideoTest com.aether.sandbox.test/androidx.test.runner.AndroidJUnitRunner | tee evidence/instrumentation.txt
+          adb logcat -d -v threadtime > evidence/logcat.txt
+          grep -E 'Camera|MediaCodec|OMX|CCodec|EGL|Surface|Decoder|Encoder|AndroidRuntime|LSPlant|Aliu' evidence/logcat.txt | tail -250 || true
+          grep -Eq '^OK \([0-9]+ tests?\)' evidence/instrumentation.txt
+          SH
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-boot-timeout: 300
+          script: bash repro.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: camera-api26-identical-apk-reproduction
+          path: evidence/
