@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.lifecycle.viewModelScope
 import com.aether.sandbox.vm.AndroidVmModel
 import com.aether.sandbox.vm.PackagedVmEngine
 import kotlinx.coroutines.*
@@ -51,6 +52,6 @@ class VmEngineTest {
                 .put("physicalPhoneVerified", false).toString(2))
             assertTrue("No display frames received", frames > 0)
             // The property is recorded independently: a display alone must never claim Android ready.
-        } finally { model.stop() }
+        } finally { model.stop(); model.viewModelScope.cancel() }
     }
 }

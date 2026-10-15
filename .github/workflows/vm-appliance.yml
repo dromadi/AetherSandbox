@@ -17,6 +17,18 @@ concurrency:
   group: vm-appliance-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  dependency-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p build/engine-dependency-source
+          docker run --rm -v "$PWD/tools/vm:/scripts:ro" -v "$PWD/build/engine-dependency-source:/out" alpine:3.22 sh /scripts/collect-engine-sources.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vm-engine-dependency-sources
+          path: build/engine-dependency-source/
   package:
     runs-on: ubuntu-24.04
     timeout-minutes: 35

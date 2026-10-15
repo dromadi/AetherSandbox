@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.11**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.12**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -15,6 +15,14 @@ Versi awal: **0.1.0-alpha.11**. Android 8–16 (minSdk 26, targetSdk 36).
 - Panel video melayang dengan kontrol pause, tutup, geser, dan transparansi. Izin overlay diminta saat pengguna mengaktifkan panel.
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
+
+## Pembaruan alpha.12 — engine VM dan jalur boot Android
+
+- Engine QEMU 11.1.2 statis dibangun dari source untuk host ARM64/x86_64, dikemas dalam APK engine. Build dasar CI tidak membawa engine; pilih artifact `AetherSandbox-0.1.0-alpha.12-engine` dari workflow Android guest appliance.
+- Layar Android guest mengimpor ISO resmi Android-x86 9.0-r2 dengan checksum rilis, mengekstrak kernel/initrd secara terbatas dan memulai PC guest melalui TCG.
+- Display RFB memakai socket Unix privat; sentuhan dan teks diteruskan ke guest. Sesi awal memakai data sementara, tanpa jaringan, audio, kamera atau background VM. Meninggalkan layar menghentikan VM.
+- Tes engine menjalankan boot Linux ARM64 sepuluh kali di dalam Android. Tes guest mengarsipkan framebuffer dan serial; status sys.boot_completed dicatat terpisah. Hasil aktual ada pada PR/CI, bukan diasumsikan dari adanya layar display.
+- Image Android tidak termasuk APK dan Android 9 adalah milestone kompatibilitas lama. Belum klaim dukungan aplikasi populer atau HP fisik. [Batas engine dan bukti](docs/VM_ENGINE.md).
 
 ## Pembaruan alpha.11 — Aether VM, tahap kelayakan G0
 

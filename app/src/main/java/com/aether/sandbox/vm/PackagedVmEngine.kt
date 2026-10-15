@@ -55,7 +55,7 @@ object PackagedVmEngine {
         require(listOf("guest.iso", "kernel", "initrd.img").all { File(root, it).isFile }) { "Impor ISO Android-x86 9.0-r2 terlebih dahulu" }
         require(socket.path.length < 100) { "Jalur socket terlalu panjang" }
         return listOf(executable(context, "x86_64").path, "-L", prepareFirmware(context).path,
-            "-machine", "pc-i440fx-10.0", "-accel", "tcg,thread=multi", "-cpu", "qemu64", "-smp", "2",
+            "-machine", "pc-i440fx-10.0", "-accel", "tcg,thread=multi", "-cpu", "qemu64,+ssse3,+sse4.1,+sse4.2,+popcnt", "-smp", "2",
             "-m", "1024M", "-no-user-config", "-nic", "none", "-display", "none", "-vga", "std",
             "-vnc", "unix:${socket.path}", "-monitor", "none", "-serial", "stdio", "-no-reboot",
             "-usb", "-device", "usb-tablet", "-kernel", File(root, "kernel").path,

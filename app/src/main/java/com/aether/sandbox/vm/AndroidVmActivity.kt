@@ -144,7 +144,7 @@ class AndroidVmActivity : ComponentActivity() {
             }
         } }
     }
-    override fun onStop() { if (!isChangingConfigurations) vm?.stop(); super.onStop() }
+    override fun onStop() { if (!isChangingConfigurations && vm?.state?.value?.running == true) vm?.stop(); super.onStop() }
 }
 
 private class GuestFrameView(context: android.content.Context, val send: (Int, Int, Boolean) -> Unit) : View(context) {

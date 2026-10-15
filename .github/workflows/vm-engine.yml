@@ -1,6 +1,7 @@
 name: Android packaged VM engine
 on:
-  pull_request:
+  push:
+    branches: [main]
     paths:
       - 'tools/vm/build-static-engine.sh'
       - '.github/workflows/vm-engine.yml'
