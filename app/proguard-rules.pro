@@ -11,3 +11,5 @@
 -keep class com.aether.sandbox.media.Camera2VideoBridge$* { *; }
 
 -keep class android.hardware.camera2.AetherCameraDevice { *; }
+
+-keep class com.aether.sandbox.core.GuestFrameworkBridge { *; }

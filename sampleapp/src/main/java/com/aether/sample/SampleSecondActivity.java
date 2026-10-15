@@ -10,6 +10,8 @@ import android.widget.TextView;
 public final class SampleSecondActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        SamplePayload payload = getIntent().getParcelableExtra("payload");
+        if (payload == null || !"guest-only".equals(payload.value)) throw new IllegalStateException("Guest Parcelable lost");
         var layout = new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL);
         int padding = Math.round(24 * getResources().getDisplayMetrics().density);
         layout.setPadding(padding, padding * 2, padding, padding);

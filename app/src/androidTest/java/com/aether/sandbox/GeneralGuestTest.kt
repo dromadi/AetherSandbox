@@ -20,6 +20,7 @@ class GeneralGuestTest {
         val repository = SandboxRepository(host)
         val first = repository.importApk(Uri.fromFile(source))
         val second = repository.importApk(Uri.fromFile(source))
+        var active: com.aether.sandbox.core.GeneralGuest? = null
         try {
             // A plain third-party app carries no GuestEntry metadata.
             assertFalse(first.trustedFixture)
@@ -27,7 +28,7 @@ class GeneralGuestTest {
 
             val prepared = GeneralGuestLoader.prepare(host, first, repository)
             lateinit var guest: com.aether.sandbox.core.GeneralGuest
-            instrumentation.runOnMainSync { guest = GeneralGuestLoader.start(prepared) }
+            instrumentation.runOnMainSync { guest = GeneralGuestLoader.start(prepared); active = guest }
             assertEquals("com.aether.sample.SampleApplication", guest.application.javaClass.name)
             // Component registry: two activities, one service, one receiver; launcher is not the first manifest Activity.
             val components = guest.components
@@ -41,6 +42,22 @@ class GeneralGuestTest {
             assertEquals("provider:com.aether.sample",
                 File(repository.directory(first.id), "data/files/provider.txt").readText())
             assertFalse(File(repository.directory(second.id), "data/files/provider.txt").exists())
+            val resolver = guest.context.contentResolver
+            val uri = Uri.parse("content://com.aether.sample.init/state")
+            fun value(): String = resolver.query(uri, null, null, null, null)!!.use { cursor ->
+                assertTrue(cursor.moveToFirst()); cursor.getString(0)
+            }
+            assertEquals("empty", value())
+            assertEquals(uri, resolver.insert(uri, android.content.ContentValues().apply { put("value", "alpha") }))
+            assertEquals("alpha", value())
+            assertEquals("alpha", resolver.call(uri, "state", null, null)!!.getString("value"))
+            assertEquals(1, resolver.update(uri, android.content.ContentValues().apply { put("value", "beta") }, null, null))
+            assertEquals("beta", value())
+            assertFalse(host.getSharedPreferences("guest_${second.id}_provider-data", 0).contains("value"))
+            assertEquals(1, resolver.delete(uri, null, null)); assertEquals("empty", value())
+            assertTrue(guest.context.getExternalFilesDir(null).path.endsWith("/Android/data/com.aether.sample/files"))
+            assertTrue(guest.context.externalCacheDir.path.endsWith("/Android/data/com.aether.sample/cache"))
+            assertTrue(guest.context.getExternalFilesDir(null).canonicalPath.startsWith(repository.directory(first.id).canonicalPath + "/"))
             // Resources resolve against the guest APK, not the host.
             assertEquals("Aether Sample App", guest.context.getString(
                 guest.context.resources.getIdentifier("sample_label", "string", "com.aether.sample")))
@@ -53,9 +70,12 @@ class GeneralGuestTest {
             assertEquals("onCreate:com.aether.sample", markerFirst.readText())
             assertFalse("Instances must not share storage",
                 File(repository.directory(second.id), "data/files/started.txt").exists())
-            guest.providers.forEach { it.shutdown() }
-            runCatching { guest.application.onTerminate() }
+
         } finally {
+            active?.let { guest ->
+                guest.providers.forEach { runCatching { it.shutdown() } }
+                runCatching { guest.application.onTerminate() }; guest.framework.close()
+            }
             repository.list().filter { it.id == first.id || it.id == second.id }.forEach { repository.delete(it.id) }
             source.delete()
         }

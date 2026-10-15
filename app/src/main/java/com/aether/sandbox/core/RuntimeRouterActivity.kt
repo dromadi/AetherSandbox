@@ -30,7 +30,7 @@ class RuntimeRouterActivity : ComponentActivity() {
                     val (taskId, runtimeSlot) = withContext(Dispatchers.IO) {
                         SandboxRepository(this@RuntimeRouterActivity).runtimeLocation(id)
                     }
-                    val allowedRoots = setOf(RuntimeSlots.activities[runtimeSlot].name, GuestActivityRuntime.STUBS[runtimeSlot].name)
+                    val allowedRoots = (GuestActivityRuntime.POOLS[runtimeSlot].map { it.name } + RuntimeSlots.activities[runtimeSlot].name).toSet()
                     val task = manager.appTasks.firstOrNull {
                         val info = it.taskInfo
                         val currentId = if (android.os.Build.VERSION.SDK_INT >= 29) info.taskId else @Suppress("DEPRECATION") info.id

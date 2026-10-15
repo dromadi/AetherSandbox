@@ -25,6 +25,8 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
+      - name: Pinned upstream APK for real application compatibility test
+        run: bash .github/scripts/prepare-real-apk.sh
       - name: SDK and native toolchain
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'ndk;27.0.12077973' 'cmake;3.22.1'
       - name: Tests, lint, debug and release build
@@ -32,7 +34,7 @@ jobs:
       - name: APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: AetherSandbox-0.1.0-alpha.9
+          name: AetherSandbox-0.1.0-alpha.10
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk

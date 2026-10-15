@@ -34,6 +34,8 @@ data class SandboxRecord(
     val instanceName: String = label,
 )
 
+data class InstalledApp(val packageName: String, val label: String, val version: String, val split: Boolean)
+
 /** The guest's declared Android components, as read from its APK manifest. */
 data class GuestComponents(
     val activities: List<String>,
@@ -70,6 +72,25 @@ class SandboxRepository(private val context: Context) {
 
     fun apk(record: SandboxRecord): File = SandboxPaths.resolve(directory(record.id), "guest.apk")
     fun directory(id: String): File = SandboxPaths.instance(root, id)
+
+    @Suppress("DEPRECATION")
+    fun installedApps(): List<InstalledApp> = context.packageManager.queryIntentActivities(
+        android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER), 0)
+        .map { it.activityInfo.packageName }.distinct().filter { it != context.packageName }.mapNotNull { name ->
+            runCatching {
+                val info = context.packageManager.getPackageInfo(name, 0)
+                val app = requireNotNull(info.applicationInfo)
+                InstalledApp(name, app.loadLabel(context.packageManager).toString(), info.versionName.orEmpty(), !app.splitSourceDirs.isNullOrEmpty())
+            }.getOrNull()
+        }.sortedBy { it.label.lowercase() }
+
+    @Suppress("DEPRECATION")
+    fun importInstalled(packageName: String): SandboxRecord {
+        require(installedApps().any { it.packageName == packageName }) { "Aplikasi tidak tersedia pada daftar launcher" }
+        val app = context.packageManager.getApplicationInfo(packageName, 0)
+        require(app.splitSourceDirs.isNullOrEmpty()) { "Aplikasi ini memakai split APK; impor paket terpisah belum didukung" }
+        return importApk(Uri.fromFile(File(app.sourceDir)))
+    }
 
     fun importApk(uri: Uri): SandboxRecord {
         val records = list()
@@ -249,6 +270,10 @@ class SandboxRepository(private val context: Context) {
         info.applicationInfo?.apply { sourceDir = file.path; publicSourceDir = file.path }
         return info
     }
+
+    fun packageSnapshot(record: SandboxRecord): PackageInfo = archiveInfo(apk(record),
+        PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS or
+            PackageManager.GET_PROVIDERS or PackageManager.GET_PERMISSIONS or PackageManager.GET_DISABLED_COMPONENTS)
 
     fun providerRegistry(record: SandboxRecord): List<android.content.pm.ProviderInfo> =
         archiveInfo(apk(record), PackageManager.GET_PROVIDERS).providers.orEmpty().toList()
