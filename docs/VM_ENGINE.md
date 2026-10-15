@@ -23,8 +23,8 @@ The session controller starts the packaged executable using an argument array, c
 ## Evidence gates
 
 1. Packaged ARM64-guest engine must boot the pinned minimal Linux fixture ten times inside an Android app process, with nonce, PID 1, exit and poweroff checks.
-2. API 34 full guest lab pushes the original ISO and extracted boot files into the debug app's private fixture directory. This bypasses the SAF copy step only; production extraction has domain tests for bounds and duplicate records.
-3. The Android guest runs for up to five minutes, with guest framebuffer PNGs and serial logs archived. A serial-shell `getprop sys.boot_completed` probe is recorded separately; echoed commands are not counted as success. Failure to get a property result leaves readiness unverified even if a framebuffer is visible.
+2. API 34 full guest lab pushes the original ISO and extracted boot files into the debug app's private fixture directory. The test calls the production import pipeline on the staged ISO, including checksum and bounded boot extraction; domain tests also cover invalid extents and duplicate records.
+3. The Android guest runs for up to fifteen minutes, with guest framebuffer PNGs and serial logs archived. A serial-shell `getprop sys.boot_completed` probe is recorded separately; echoed commands are not counted as success. Missing boot completion fails the test even if a framebuffer is visible. After boot, the lab starts the guest Settings Activity and checks its resumed component and framebuffer.
 4. Inspect actual guest screenshots before claiming launcher/setup UI. Physical ARM64 phone boot remains unverified until tested on a device. Android-emulator-on-Linux results do not prove vendor-device compatibility.
 
 ## Source and licensing artifacts

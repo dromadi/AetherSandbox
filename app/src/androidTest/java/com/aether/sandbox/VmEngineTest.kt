@@ -49,23 +49,42 @@ class VmEngineTest {
         var frames = 0; var booted = false
         try {
             model.start()
-            repeat(20) { round ->
-                delay(15_000)
+            for (round in 0 until 30) {
+                delay(30_000)
                 model.state.value.frame?.let { bitmap ->
                     File(root, "frame-$round.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                     frames++
                 }
                 model.requestBootEvidence(token)
+                delay(1_000)
                 val log = File(root, "console.log").takeIf { it.exists() }?.readText().orEmpty()
                 booted = booted || log.contains("AETHER_GUEST_BOOT_${token}=1")
                 if (!model.state.value.running) error(model.state.value.status)
+                if (booted) break
+            }
+            var settings = false
+            if (booted) {
+                model.requestSettingsEvidence(token, launch = true)
+                for (attempt in 0 until 6) {
+                    delay(15_000)
+                    model.requestSettingsEvidence(token, launch = false)
+                    delay(1_000)
+                    val log = File(root, "console.log").readText()
+                    settings = Regex("AETHER_GUEST_SETTINGS_${token}=.*com\\.android\\.settings").containsMatchIn(log)
+                    if (settings) break
+                }
+                model.state.value.frame?.let { bitmap ->
+                    File(root, "frame-settings.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                }
             }
             File(root, "android-boot-report.json").writeText(JSONObject()
                 .put("hostApi", Build.VERSION.SDK_INT).put("hostAbi", Build.SUPPORTED_ABIS.first())
                 .put("displayFrames", frames).put("sysBootCompletedVerified", booted)
+                .put("settingsActivityResumed", settings)
                 .put("physicalPhoneVerified", false).toString(2))
             assertTrue("No display frames received", frames > 0)
             assertTrue("Guest did not finish Android boot; see console.log and saved display frames", booted)
+            assertTrue("Guest Settings Activity did not resume", settings)
         } finally { withContext(Dispatchers.Main) { model.stop(); activity.finish() } }
     }
 }

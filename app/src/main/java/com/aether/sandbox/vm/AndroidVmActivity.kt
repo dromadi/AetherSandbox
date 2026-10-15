@@ -99,6 +99,14 @@ class AndroidVmModel(app: Application) : AndroidViewModel(app) {
             stream.flush()
         } }
     }
+    internal suspend fun requestSettingsEvidence(nonce: String, launch: Boolean) = withContext(Dispatchers.IO) {
+        require(nonce.matches(Regex("[a-zA-Z0-9]+")))
+        runCatching { process?.outputStream?.let { stream ->
+            val start = if (launch) "am start -a android.settings.SETTINGS >/dev/null; " else ""
+            stream.write((start + "printf 'AETHER_GUEST_SETTINGS_%s=' '$nonce'; dumpsys activity activities | grep mResumedActivity\n").toByteArray())
+            stream.flush()
+        } }
+    }
     private fun input(command: (LocalRfb) -> Unit) { display?.let { inputs.trySend(it to command) } }
     fun pointer(x: Int, y: Int, down: Boolean) = input { it.pointer(x, y, down) }
     fun key(code: Int) = input { it.key(code, true); it.key(code, false) }

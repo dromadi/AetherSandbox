@@ -15,7 +15,7 @@ adb shell am instrument -w -r -e requireVmEngine true -e class com.aether.sandbo
     com.aether.sandbox.test/androidx.test.runner.AndroidJUnitRunner | tee build/engine-device-evidence/instrumentation.txt
 if [ "${VM_FULL_GUEST:-0}" = 1 ]; then
     mapfile -t evidence_files < <(adb shell run-as com.aether.sandbox ls files/vm-android9 | tr -d '\r' | \
-      grep -E '^(frame-[0-9]+\.png|console\.log|android-boot-report\.json)$' || true)
+      grep -E '^(frame-([0-9]+|settings)\.png|console\.log|android-boot-report\.json)$' || true)
     if [ "${#evidence_files[@]}" -gt 0 ]; then
         adb exec-out run-as com.aether.sandbox tar -cf - -C files/vm-android9 "${evidence_files[@]}" \
           > build/engine-device-evidence/guest-evidence.tar || true
