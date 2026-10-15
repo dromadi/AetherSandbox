@@ -60,7 +60,8 @@ class VmLabActivity : ComponentActivity() {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Aether VM • Laboratorium", style = MaterialTheme.typography.headlineSmall)
-                Text("Tahap G0: pemeriksaan perangkat. Mesin QEMU dan Android guest belum disertakan dalam APK ini.")
+                Text(if (PackagedVmEngine.available(this@VmLabActivity)) "Engine QEMU tersedia. Image Android diimpor terpisah melalui layar Android guest."
+                    else "Pemeriksaan perangkat. Build dasar ini belum menyertakan engine QEMU untuk ABI perangkat.")
                 Text("Pemeriksaan menjalankan kode native pendek dalam proses terpisah, membaca akses KVM dan fitur AVF, RAM serta ruang penyimpanan. Hasilnya tidak membuktikan VM Android bisa berjalan.")
                 Button(enabled = !state.running, onClick = { exportMessage = null; model.probe(applicationContext) }) { Text(if (state.running) "Memeriksa…" else "Periksa perangkat") }
                 if (state.running) LinearProgressIndicator(Modifier.fillMaxWidth())

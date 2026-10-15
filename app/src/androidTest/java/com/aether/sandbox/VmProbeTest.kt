@@ -36,7 +36,7 @@ class VmProbeTest {
             assertEquals(android.os.Process.myUid(), report.getInt("uid"))
             assertTrue(report.getLong("totalMemoryBytes") > 0)
             assertTrue(report.getLong("freeStorageBytes") > 0)
-            assertFalse(report.getBoolean("qemuPackaged"))
+            assertEquals(com.aether.sandbox.vm.PackagedVmEngine.available(host), report.getBoolean("qemuPackaged"))
             assertFalse(report.getBoolean("androidGuestBooted"))
             assertFalse(report.getBoolean("physicalDeviceVerified"))
         }
