@@ -60,6 +60,8 @@
         <activity android:name=".core.GuestSlot3Activity6" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
         <activity android:name=".core.GuestSlot3Activity7" android:exported="false" android:process=":virtual_process3" android:taskAffinity="com.aether.sandbox.slot3" />
         <activity android:name=".core.RuntimeRouterActivity" android:exported="false" />
+        <activity android:name=".vm.VmLabActivity" android:exported="false" />
+        <service android:name=".vm.VmProbeService" android:exported="false" android:process=":vm_probe" />
         <service android:name=".media.FloatingAssistantService" android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
     </application>
