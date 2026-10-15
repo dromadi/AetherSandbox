@@ -43,8 +43,8 @@ class VmEngineTest {
         // not just the host-side bsdtar fixture extraction.
         PackagedVmEngine.importIso(host, android.net.Uri.fromFile(File(root, "guest.iso")))
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val activity = instrumentation.startActivitySync(Intent(host, AndroidVmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        val model = withContext(Dispatchers.Main) { ViewModelProvider(activity)[AndroidVmModel::class.java] }
+        val activity = instrumentation.startActivitySync(Intent(host, AndroidVmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as AndroidVmActivity
+        val model = withContext(Dispatchers.Main) { ViewModelProvider.create(activity)[AndroidVmModel::class.java] }
         val token = UUID.randomUUID().toString().replace("-", "")
         var frames = 0; var booted = false
         try {
