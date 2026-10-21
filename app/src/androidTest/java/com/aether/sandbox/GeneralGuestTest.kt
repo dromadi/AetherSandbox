@@ -25,11 +25,13 @@ class GeneralGuestTest {
             assertFalse(first.trustedFixture)
             assertEquals("com.aether.sample", first.packageName)
 
-            val guest = GeneralGuestLoader.load(host, first, repository)
+            val prepared = GeneralGuestLoader.prepare(host, first, repository)
+            lateinit var guest: com.aether.sandbox.core.GeneralGuest
+            instrumentation.runOnMainSync { guest = GeneralGuestLoader.start(prepared) }
             assertEquals("com.aether.sample.SampleApplication", guest.application.javaClass.name)
-            // Component registry: two activities, one service, one receiver; launcher is the first.
+            // Component registry: two activities, one service, one receiver; launcher is not the first manifest Activity.
             val components = guest.components
-            assertEquals("com.aether.sample.SampleActivity", components.launcher)
+            assertEquals("com.aether.sample.SampleLauncher", components.launcher)
             assertTrue(components.activities.containsAll(
                 listOf("com.aether.sample.SampleActivity", "com.aether.sample.SampleSecondActivity")))
             assertTrue(components.services.contains("com.aether.sample.SampleService"))
@@ -40,6 +42,8 @@ class GeneralGuestTest {
 
             // Application.onCreate wrote its marker into this instance's private storage only.
             val markerFirst = File(repository.directory(first.id), "data/files/started.txt")
+            assertEquals("native-library-loaded", File(repository.directory(first.id), "data/files/native.txt").readText())
+            assertEquals(File(repository.directory(first.id), "data").path, guest.context.applicationInfo.dataDir)
             assertTrue("Application.onCreate did not run", markerFirst.exists())
             assertEquals("onCreate:com.aether.sample", markerFirst.readText())
             assertFalse("Instances must not share storage",

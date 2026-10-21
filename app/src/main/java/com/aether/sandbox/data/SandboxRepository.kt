@@ -31,6 +31,7 @@ data class SandboxRecord(
     val testAndroidId: String,
     val entryClass: String?,
     val trustedFixture: Boolean,
+    val instanceName: String = label,
 )
 
 /** The guest's declared Android components, as read from its APK manifest. */
@@ -59,7 +60,7 @@ class SandboxRepository(private val context: Context) {
                 SandboxPaths.requireInstanceId(json.getString("id")), json.getString("package"),
                 json.getString("label"), json.getString("version"), json.getString("sha256"),
                 json.getLong("bytes"), TestProfile.requireAndroidId(json.getString("testId")),
-                json.optString("entry").takeIf { it.isNotEmpty() }, json.optBoolean("trusted"),
+                json.optString("entry").takeIf { it.isNotEmpty() }, json.optBoolean("trusted"), json.optString("name", json.getString("label")),
             )
         }
     }
@@ -129,7 +130,21 @@ class SandboxRepository(private val context: Context) {
         if (!isRunning(id)) return
         RuntimeControl.requestStop(context, id)
         val deadline = SystemClock.uptimeMillis() + waitMillis
+        val forceAt = SystemClock.uptimeMillis() + 1_000
+        var forced = false
         while (isRunning(id)) {
+            if (!forced && SystemClock.uptimeMillis() >= forceAt) {
+                forced = true
+                val report = File(directory(id), "runtime-report.json")
+                val pid = runCatching { JSONObject(report.inputStream().use { it.readBytesBounded(32_769).also { bytes -> check(bytes.size <= 32_768) }.toString(Charsets.UTF_8) }).getInt("pid") }.getOrNull()
+                val manager = context.getSystemService(android.app.ActivityManager::class.java)
+                val process = manager.runningAppProcesses.orEmpty().firstOrNull {
+                    it.pid == pid && it.uid == android.os.Process.myUid() &&
+                        it.processName in (0..3).map { slot -> context.packageName + ":virtual_process" + if (slot == 0) "" else slot.toString() }
+                }
+                // Same-UID kill, only after verifying PID and an owned runtime process name.
+                if (process != null && isRunning(id)) android.os.Process.killProcess(process.pid)
+            }
             if (SystemClock.uptimeMillis() >= deadline) throw IOException("Guest tidak berhenti dalam ${waitMillis / 1000} detik")
             SystemClock.sleep(LEASE_POLL_MILLIS)
         }
@@ -144,11 +159,58 @@ class SandboxRepository(private val context: Context) {
         find(id)
         // Publish removal first so new launches cannot see a half-deleted instance.
         save(list().filterNot { it.id == id })
+        runCatching { com.aether.sandbox.core.ShortcutGate.revoke(context, id) }
         File(context.applicationInfo.dataDir, "shared_prefs").listFiles().orEmpty()
             .filter { it.name.startsWith("guest_${id}_") && it.name.endsWith(".xml") }
             .forEach { context.deleteSharedPreferences(it.name.removeSuffix(".xml")) }
         File(context.codeCacheDir, id).deleteRecursively()
         if (!directory(id).deleteRecursively()) throw IOException("Data tersisa di penyimpanan; hapus ulang melalui pengaturan aplikasi")
+    }
+
+    /** A fresh instance of the same verified APK; account data is deliberately not copied. */
+    fun duplicate(id: String): SandboxRecord {
+        val source = find(id)
+        verifyIntegrity(source)
+        val copy = importApk(Uri.fromFile(apk(source)))
+        rename(copy.id, "${source.instanceName.take(70)} • salinan")
+        return find(copy.id)
+    }
+
+    fun rename(id: String, name: String) {
+        val clean = name.trim()
+        require(clean.isNotEmpty() && clean.length <= 80) { "Nama harus 1–80 karakter" }
+        find(id)
+        save(list().map { if (it.id == id) it.copy(instanceName = clean) else it })
+    }
+
+    /** Requires a stopped runtime; retains APK, instance UUID, and test profile. */
+    fun resetData(id: String) = acquireRuntime(id).use {
+        find(id)
+        File(context.applicationInfo.dataDir, "shared_prefs").listFiles().orEmpty()
+            .filter { it.name.startsWith("guest_${id}_") && it.name.endsWith(".xml") }
+            .forEach { check(context.deleteSharedPreferences(it.name.removeSuffix(".xml"))) }
+        for (path in listOf(File(directory(id), "data"), File(directory(id), "native"), File(context.codeCacheDir, id))) {
+            check(!path.exists() || path.deleteRecursively()) { "Gagal membersihkan data instance" }
+        }
+    }
+
+    fun runtimeReport(id: String): String {
+        val record = find(id)
+        val components = guestComponents(record)
+        val report = File(directory(id), "runtime-report.json")
+        return buildString {
+            appendLine("AetherSandbox ${com.aether.sandbox.BuildConfig.VERSION_NAME}")
+            appendLine("Instance: ${record.instanceName} (${record.id})")
+            appendLine("Paket: ${record.packageName} ${record.versionName}")
+            appendLine("SHA-256: ${record.sha256}")
+            appendLine("Android: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
+            appendLine("Berjalan: ${isRunning(id)}")
+            appendLine("Launcher: ${components.launcher ?: "tidak tersedia"}")
+            appendLine("Activity=${components.activities.size}; Service=${components.services.size}; Provider=${components.providers.size}; Receiver=${components.receivers.size}")
+            appendLine("Runtime umum: Application saja; Activity/Service/Provider belum dieksekusi.")
+            appendLine("Guest memakai UID host; bukan isolasi keamanan.")
+            if (report.exists() && report.length() <= 32_768) appendLine(report.readText())
+        }
     }
 
     fun verifyFixture(record: SandboxRecord): PackageInfo {
@@ -180,8 +242,7 @@ class SandboxRepository(private val context: Context) {
     /**
      * Collects the guest's declared components from the stored APK. This is the registry the
      * runtime will need before it can start the guest's Activities/Services; alpha.5 only reports
-     * it. Launcher resolution is a heuristic on manifest order — the archive does not expose intent
-     * filters — so a guest whose launcher is not its first activity needs manifest parsing (future).
+     * it. Launcher resolution reads MAIN/LAUNCHER filters from the binary APK manifest.
      */
     fun guestComponents(record: SandboxRecord): GuestComponents {
         val info = archiveInfo(apk(record),
@@ -190,12 +251,10 @@ class SandboxRepository(private val context: Context) {
         fun names(items: Array<out android.content.pm.ComponentInfo>?) = items.orEmpty().map { it.name }
         val activities = names(info.activities)
         return GuestComponents(activities, names(info.services), names(info.providers),
-            names(info.receivers), activities.firstOrNull())
+            names(info.receivers), com.aether.sandbox.core.ManifestLauncher.resolve(context, requireNotNull(info.applicationInfo).apply {
+                sourceDir = apk(record).path; publicSourceDir = sourceDir
+            }))
     }
-
-    /** Package name of the activity declared as the app's launcher, if the archive exposes one. */
-    fun launcherActivity(info: PackageInfo): String? =
-        info.activities?.firstOrNull()?.name
 
     @Suppress("DEPRECATION")
     private fun archiveInfo(file: File, extra: Int = 0): PackageInfo {
@@ -223,7 +282,7 @@ class SandboxRepository(private val context: Context) {
         val array = JSONArray()
         records.forEach { record ->
             array.put(JSONObject().put("id", record.id).put("package", record.packageName)
-                .put("label", record.label).put("version", record.versionName).put("sha256", record.sha256)
+                .put("label", record.label).put("name", record.instanceName).put("version", record.versionName).put("sha256", record.sha256)
                 .put("bytes", record.bytes).put("testId", record.testAndroidId)
                 .put("entry", record.entryClass.orEmpty()).put("trusted", record.trustedFixture))
         }
@@ -247,3 +306,14 @@ class SandboxRepository(private val context: Context) {
     }
 }
 
+
+private fun java.io.InputStream.readBytesBounded(limit: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(4096)
+    while (output.size() < limit) {
+        val count = read(buffer, 0, minOf(buffer.size, limit - output.size()))
+        if (count < 0) break
+        output.write(buffer, 0, count)
+    }
+    return output.toByteArray()
+}

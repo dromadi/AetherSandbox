@@ -1,12 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:label="@string/sample_label" android:name=".SampleApplication">
-        <activity android:name=".SampleActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
         <activity android:name=".SampleSecondActivity" android:exported="false" />
+        <activity android:name=".SampleActivity" android:exported="true">
+        </activity>
+        <activity-alias android:name=".DisabledLauncher" android:targetActivity=".SampleActivity" android:enabled="false" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".SampleLauncher" android:targetActivity=".SampleActivity" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
         <service android:name=".SampleService" android:exported="false" />
         <receiver android:name=".SampleReceiver" android:exported="false" />
     </application>

@@ -22,29 +22,42 @@ data class GeneralGuest(
     val components: com.aether.sandbox.data.GuestComponents,
 )
 
+data class PreparedGuest(val context: VirtualContext, val applicationClass: Class<out Application>,
+    val components: com.aether.sandbox.data.GuestComponents)
+
 object GeneralGuestLoader {
-    fun load(host: Context, record: SandboxRecord, repository: SandboxRepository): GeneralGuest {
+    /** IO-only preparation. The caller starts the Application on Android's main thread. */
+    fun prepare(host: Context, record: SandboxRecord, repository: SandboxRepository): PreparedGuest {
         val info = repository.verifyIntegrity(record)
         val components = repository.guestComponents(record)
         val apk = repository.apk(record)
-        val appInfo = requireNotNull(info.applicationInfo) { "APK tidak memiliki ApplicationInfo" }
+        val appInfo = android.content.pm.ApplicationInfo(requireNotNull(info.applicationInfo) { "APK tidak memiliki ApplicationInfo" })
         val resources = host.packageManager.getResourcesForApplication(appInfo)
         val dataRoot = File(repository.directory(record.id), "data").apply { mkdirs() }
         val optimized = File(host.codeCacheDir, record.id).apply { mkdirs() }
         // Parent is the boot classloader (framework only), so guest classes do not see host app
         // classes and the guest's own bundled libraries win over the host's.
-        val loader = DexClassLoader(apk.path, optimized.path, appInfo.nativeLibraryDir,
+        val native = com.aether.sandbox.domain.NativeLibraries.extract(apk,
+            File(repository.directory(record.id), "native"), android.os.Build.SUPPORTED_ABIS.toList()
+                .filter { it.contains("64") == android.os.Process.is64Bit() })
+        appInfo.dataDir = dataRoot.path
+        appInfo.nativeLibraryDir = native?.path
+        val loader = DexClassLoader(apk.path, optimized.path, native?.path,
             ClassLoader.getSystemClassLoader().parent)
         val context = VirtualContext(host, dataRoot, record.packageName, record.id, loader, resources, appInfo)
 
         val className = appInfo.className ?: Application::class.java.name
-        val application = loader.loadClass(className).asSubclass(Application::class.java)
-            .getDeclaredConstructor().newInstance()
-        attach(application, context)
-        context.application = application
-        application.onCreate()
+        val applicationClass = loader.loadClass(className).asSubclass(Application::class.java)
+        return PreparedGuest(context, applicationClass, components)
+    }
 
-        return GeneralGuest(context, application, components)
+    fun start(prepared: PreparedGuest): GeneralGuest {
+        check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) { "Application harus dimulai di main thread" }
+        val application = prepared.applicationClass.getDeclaredConstructor().newInstance()
+        attach(application, prepared.context)
+        prepared.context.application = application
+        application.onCreate()
+        return GeneralGuest(prepared.context, application, prepared.components)
     }
 
     /** Calls the protected Application.attachBaseContext(Context) through reflection. */

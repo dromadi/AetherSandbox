@@ -66,3 +66,11 @@ Tanggal: 2026-10-14.
 | assembleDebug / assembleRelease (R8) / fixture / sampleapp / assembleDebugAndroidTest | Lulus; `fixture.apk` dan `sampleapp.apk` dibundel di APK test |
 | `GeneralGuestTest` (sampleapp: resource, `Application.onCreate`, storage terpisah, registry komponen) | Belum dijalankan lokal (tidak ada KVM); lihat workflow device tests |
 | Eksekusi Activity/Service guest | Tidak ada; di luar lingkup milestone 1 |
+
+## Alpha.6 — validasi batch kendali proses
+
+Build lokal tidak dapat dimulai: Gradle 8.13 belum tersedia dan unduhan distribusi diblokir jaringan. Tidak ada klaim build lokal lulus.
+
+Pengujian baru: native ABI selection / incompatible ABI / Java-only / traversal, Application main thread, launcher alias yang berbeda dari Activity pertama, reset/duplikasi/persistensi profil, dua worker dalam proses berbeda dan penghentian salah satunya, serta fallback stop ketika startup memblokir main thread. Hasil aktual harus dilihat pada CI PR alpha.6; status pengujian versi sebelumnya tidak otomatis berlaku.
+
+Belum diuji: HP fisik ARM64, shortcut pada launcher vendor, native library produksi, login akun, Activity/Service/Provider guest, seluruh benchmark kompetitor.
