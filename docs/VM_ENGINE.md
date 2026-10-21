@@ -61,3 +61,11 @@ Validation before CI: production Java compiles locally through the JDK compiler 
 
 Format reference: https://www.kernel.org/doc/html/latest/driver-api/early-userspace/buffer-format.html
 Android-x86 early init reference: https://github.com/BlissRoms-x86/bootable_newinstaller/blob/pie-x86/initrd/init
+
+## Core guest follow-up
+
+Run 39599875966 on f5f9400 verified both stop cycles and the extract profile, but still failed Android boot completion. Deferring dexopt alone was insufficient; it is not a successful-boot result. The verified ISO's initrd and ramdisk were inspected in runs 39602462163 and 39602750605, and optional package paths were inventoried in run 39603593120.
+
+The next profile offers Core (default) and Full in the VM screen. Core temporarily masks a fixed list of optional Google packages, Chrome, Gmail and search inside the guest using bind mounts over their APK directories. Framework, Settings, SystemUI, launcher, package installer, providers and WebView remain available. Full retains the bundled packages. The verified source ISO is unchanged. Core uses Android-x86's existing SETUPWIZARD=0 option for this fresh test guest; it does not provision or modify the host.
+
+Both profiles use 2 GiB guest RAM and disable the software-rendered boot animation through debug.sf.nobootanimation before SurfaceFlinger starts. The test host emulator has 4 GiB RAM. Actual sys.boot_completed and Settings remain mandatory gates. Core mode must read back sys.aether.profile=core; failed bind mounts report core-error. Diagnostics also capture the guest crash buffer and ANR tails, including a second mid-boot snapshot. Boot completion remains unverified until the new device run finishes.

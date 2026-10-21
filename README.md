@@ -16,10 +16,11 @@ Versi awal: **0.1.0-alpha.13**. Android 8–16 (minSdk 26, targetSdk 36).
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
 
-## Pembaruan alpha.13 — perbaikan boot pertama TCG
+## Pembaruan alpha.13 — profil Android inti dan perbaikan boot TCG
 
 - Log alpha.12 menunjukkan boot pertama masih memverifikasi Chrome dan Google Play Services lewat dex2oat setelah 15 menit. Profil TCG menunda pekerjaan itu ke pemuatan kelas ART, memakai filter `extract` sebelum zygote dimulai.
 - Initrd sumber tetap utuh. File turunan menambahkan satu arsip initramfs dengan skrip konfigurasi tetap; ISO tetap diverifikasi melalui jalur impor yang sama.
+- Profil **Android inti** (default) menyembunyikan paket Google tambahan dengan mount sementara di dalam guest. Profil **image lengkap** mempertahankan paket bawaan ISO. Guest memakai RAM 2 GB dan animasi boot dinonaktifkan untuk mengurangi beban software rendering.
 - Guest mendapat perangkat RNG virtio. Pembacaan konsol dibatasi per byte dan interupsi ketika stop ditangani di dalam coroutine.
 - Tes tetap mewajibkan boot selesai, Settings aktif, serta profil boot yang benar. Build atau animasi boot saja bukan hasil lulus. Status aktual ada di PR #11/CI; HP ARM64 fisik dan data permanen belum diverifikasi.
 

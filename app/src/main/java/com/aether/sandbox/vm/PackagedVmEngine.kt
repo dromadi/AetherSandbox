@@ -52,20 +52,21 @@ object PackagedVmEngine {
             backup.deleteRecursively()
         } finally { pending.deleteRecursively() }
     }
-    fun androidArguments(context: Context, socket: File): List<String> {
+    fun androidArguments(context: Context, socket: File, coreGuest: Boolean = true): List<String> {
         val root = directory(context)
         require(listOf("guest.iso", "kernel", "initrd.img").all { File(root, it).isFile }) { "Impor ISO Android-x86 9.0-r2 terlebih dahulu" }
         require(socket.path.length < 100) { "Jalur socket terlalu panjang" }
         return listOf(executable(context, "x86_64").path, "-L", prepareFirmware(context).path,
             "-machine", "pc-i440fx-10.0", "-accel", "tcg,thread=multi", "-cpu", "qemu64,+ssse3,+sse4.1,+sse4.2,+popcnt", "-smp", "2",
-            "-m", "1024M", "-no-user-config", "-nic", "none", "-display", "none", "-vga", "std",
+            "-m", "2048M", "-no-user-config", "-nic", "none", "-display", "none", "-vga", "std",
             // Supply OS-backed entropy even before user input or disk activity exists.
             "-object", "rng-builtin,id=entropy0", "-device", "virtio-rng-pci,rng=entropy0",
             "-vnc", "unix:${socket.path}", "-monitor", "none", "-serial", "stdio", "-no-reboot",
             "-usb", "-device", "usb-tablet", "-kernel", File(root, "kernel").path,
-            "-initrd", VmInitrd.prepare(root).path,
+            "-initrd", VmInitrd.prepare(root, coreGuest).path,
             "-drive", "file=${File(root, "guest.iso").path},format=raw,media=cdrom,readonly=on",
-            "-append", "root=/dev/ram0 androidboot.hardware=android_x86_64 SRC=/ DATA= console=tty0 console=ttyS0,115200 androidboot.console=ttyS0 nomodeset xforcevesa vga=835 HWACCEL=0")
+            "-append", "root=/dev/ram0 androidboot.hardware=android_x86_64 SRC=/ DATA= console=tty0 console=ttyS0,115200 androidboot.console=ttyS0 nomodeset xforcevesa vga=835 HWACCEL=0" +
+                if (coreGuest) " SETUPWIZARD=0" else "")
     }
     suspend fun linuxBoot(context: Context): String = withContext(Dispatchers.IO) {
         require(available(context)) { "APK ini belum membawa engine untuk ABI perangkat" }

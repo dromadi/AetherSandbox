@@ -54,6 +54,23 @@ public class VmInitrdTest {
         } finally { remove(root); }
     }
 
+    @Test public void fullProfileRetainsBundledPackages() throws Exception {
+        Path root = Files.createTempDirectory("vm-initrd-full");
+        try {
+            byte[] original = {31, -117, 8};
+            Files.write(root.resolve("initrd.img"), original);
+            byte[] derived = Files.readAllBytes(VmInitrd.prepare(root.toFile(), false).toPath());
+            String archive;
+            try (var gzip = new GZIPInputStream(new ByteArrayInputStream(derived,
+                    original.length, derived.length - original.length))) {
+                archive = new String(gzip.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            assertTrue(archive.contains("setprop sys.aether.profile full\n"));
+            assertFalse(archive.contains("mount -o bind"));
+            assertArrayEquals(original, Files.readAllBytes(root.resolve("initrd.img")));
+        } finally { remove(root); }
+    }
+
     @Test public void invalidSourcePreservesPreviouslyPublishedImage() throws Exception {
         Path root = Files.createTempDirectory("vm-initrd-invalid");
         try {
