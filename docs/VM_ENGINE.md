@@ -36,3 +36,13 @@ QEMU's configured source and relinking objects are retained in `vm-engine-source
 Test touch/keyboard and launch a guest app; add an explicitly provisioned persistent userdata disk with recovery checks; implement guest network and audio; evaluate a newer maintained Android guest/image pipeline. Advance these as distinct evidence gates, keeping the existing App Runtime regressions.
 
 Sources: [QEMU release](https://www.qemu.org/download/), [Android-x86 release and hash](https://www.android-x86.org/releases/releasenote-9-0-r2.html), [Android executable restrictions](https://developer.android.com/about/versions/10/behavior-changes-10#execute-permission), [QEMU license](https://www.qemu.org/docs/master/about/license.html).
+
+## Boot investigation — 2026-10-21
+
+The user reaffirmed full Android-in-Android as the project goal and authorized continued VM work. This follow-up remains on the VM branch; it does not promote inherited App Runtime hooks or synthetic Camera2 interception into the QA product.
+
+At alpha.12 commit 7788336 the archived final framebuffer shows the Android boot animation. Guest serial replies report Android 9 and live system_server/surfaceflinger PIDs, but sys.boot_completed is empty. This is partial userspace startup, not a finished boot or proof of a specific cause.
+
+The follow-up bounds console reads by bytes instead of unbounded readLine(), cancels the drain before destroying the process, and handles shutdown IOExceptions within the child coroutine. Unexpected console errors terminate the VM session rather than escaping to the host's uncaught exception handler. The device gate now exercises two start/stop cycles before boot and captures read-only guest properties, processes, memory and recent logcat during the wait and on timeout. The boot-complete and Settings gates remain mandatory; diagnostics never set boot properties or bypass setup.
+
+No new successful Android boot, persistent userdata or physical-device result is claimed by these source changes. Inspect the follow-up workflow results before installing or describing the milestone as complete.

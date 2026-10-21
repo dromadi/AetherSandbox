@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.channels.Channel
 import java.io.File
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 
 data class AndroidVmState(val running: Boolean = false, val busy: Boolean = false,
     val status: String = "Berhenti", val frame: Bitmap? = null)
@@ -65,12 +67,29 @@ class AndroidVmModel(app: Application) : AndroidViewModel(app) {
                 val child = ProcessBuilder(PackagedVmEngine.androidArguments(app, socket)).redirectErrorStream(true).start()
                 process = child
                 val log = File(PackagedVmEngine.directory(app), "console.log")
+                val consoleFailure = AtomicReference<IOException?>(null)
                 val drain = launch {
-                    child.inputStream.bufferedReader().use { reader ->
-                        log.bufferedWriter().use { writer ->
-                            var written = 0
-                            while (true) { val line = reader.readLine() ?: break; if (written < 4 * 1024 * 1024) { writer.appendLine(line); writer.flush(); written += line.length + 1 } }
+                    // Read bounded chunks: a guest can emit an arbitrarily long line.
+                    // Closing the process during stop interrupts this blocking read on Android.
+                    try {
+                        child.inputStream.use { input ->
+                            log.outputStream().use { output ->
+                                val buffer = ByteArray(8192)
+                                var written = 0
+                                while (isActive) {
+                                    val count = input.read(buffer)
+                                    if (count < 0) break
+                                    val keep = minOf(count, 4 * 1024 * 1024 - written)
+                                    if (keep > 0) {
+                                        output.write(buffer, 0, keep); output.flush(); written += keep
+                                    }
+                                }
+                            }
                         }
+                    } catch (e: IOException) {
+                        // A child launch must not escape into the ViewModel's exception handler.
+                        // Unexpected console loss terminates this session and is reported below.
+                        if (isActive) { consoleFailure.set(e); child.destroyForcibly() }
                     }
                 }
                 try {
@@ -80,22 +99,41 @@ class AndroidVmModel(app: Application) : AndroidViewModel(app) {
                     rfb.frames { frame ->
                         mutable.value = AndroidVmState(running = true, status = "Display guest tersambung • Android 9 • sesi sementara", frame = frame)
                     }
-                } finally { display?.close(); display = null; if (child.isAlive) child.destroyForcibly(); drain.cancel() }
+                } finally {
+                    drain.cancel()
+                    display?.close(); display = null
+                    if (child.isAlive) child.destroyForcibly()
+                }
+                consoleFailure.get()?.let { throw IOException("Pembacaan konsol VM gagal", it) }
+                if (currentCoroutineContext().isActive) {
+                    mutable.value = AndroidVmState(status = "Sesi VM berakhir.")
+                }
             } catch (e: CancellationException) { if (e is TimeoutCancellationException) mutable.value = AndroidVmState(status = "Display VM timeout") else throw e }
             catch (e: Exception) { mutable.value = AndroidVmState(status = "VM berhenti: ${e.message}") }
             finally { process?.let { if (it.isAlive) it.destroyForcibly() }; process = null; socket.delete() }
         }
     }
     fun stop() {
-        display?.close(); process?.destroyForcibly(); job?.cancel()
+        job?.cancel(); display?.close(); process?.destroyForcibly()
         mutable.value = AndroidVmState(status = "VM dihentikan. Data sesi sementara tidak disimpan.")
     }
+    internal suspend fun awaitStopped() { job?.join() }
     internal suspend fun requestBootEvidence(nonce: String) = withContext(Dispatchers.IO) {
         require(nonce.matches(Regex("[a-zA-Z0-9]+")))
         // The serial command runs INSIDE the guest, never in a host shell. Format and token are
         // split so terminal echo cannot be mistaken for a successful getprop response.
         runCatching { process?.outputStream?.let { stream ->
             stream.write(("printf 'AETHER_GUEST_BOOT_%s=' '$nonce'; getprop sys.boot_completed; getprop ro.build.version.release; pidof system_server; pidof surfaceflinger\n").toByteArray())
+            stream.flush()
+        } }
+    }
+    internal suspend fun requestDiagnostics(nonce: String) = withContext(Dispatchers.IO) {
+        require(nonce.matches(Regex("[a-zA-Z0-9]+")))
+        // Read-only commands inside the guest. Do not change boot properties or skip setup.
+        runCatching { process?.outputStream?.let { stream ->
+            stream.write(("printf '\\nAETHER_DIAGNOSTICS_%s_BEGIN\\n' '$nonce'; " +
+                "getprop; ps -A; cat /proc/meminfo; logcat -d -b all -t 160; " +
+                "printf '\\nAETHER_DIAGNOSTICS_%s_END\\n' '$nonce'\n").toByteArray())
             stream.flush()
         } }
     }

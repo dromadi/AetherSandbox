@@ -48,6 +48,14 @@ class VmEngineTest {
         val token = UUID.randomUUID().toString().replace("-", "")
         var frames = 0; var booted = false
         try {
+            // Reproduce the old read-interrupted crash while a serial drain is active.
+            repeat(2) {
+                model.start()
+                delay(2_000)
+                withContext(Dispatchers.Main) { model.stop() }
+                withTimeout(10_000) { model.awaitStopped() }
+                assertFalse("Stop must clear the running state", model.state.value.running)
+            }
             model.start()
             for (round in 0 until 30) {
                 delay(30_000)
@@ -55,6 +63,7 @@ class VmEngineTest {
                     File(root, "frame-$round.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                     frames++
                 }
+                if (round == 5) model.requestDiagnostics(token)
                 model.requestBootEvidence(token)
                 delay(1_000)
                 val log = File(root, "console.log").takeIf { it.exists() }?.readText().orEmpty()
@@ -62,6 +71,7 @@ class VmEngineTest {
                 if (!model.state.value.running) error(model.state.value.status)
                 if (booted) break
             }
+            if (!booted) { model.requestDiagnostics(token); delay(5_000) }
             var settings = false
             if (booted) {
                 model.requestSettingsEvidence(token, launch = true)
