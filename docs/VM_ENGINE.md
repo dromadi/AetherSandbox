@@ -1,6 +1,6 @@
-# Android guest engine — alpha.12
+# Android guest engine — alpha.13
 
-Work in progress. The final PR records measured CI results and screenshots. Do not infer boot success from the existence of these files.
+Research milestone: the Core Android 9 guest completed boot and displayed Settings inside an API 34 x86_64 Android emulator. See the measured validation below. Physical ARM64 phone compatibility remains unverified.
 
 ## Engine
 
@@ -36,3 +36,55 @@ QEMU's configured source and relinking objects are retained in `vm-engine-source
 Test touch/keyboard and launch a guest app; add an explicitly provisioned persistent userdata disk with recovery checks; implement guest network and audio; evaluate a newer maintained Android guest/image pipeline. Advance these as distinct evidence gates, keeping the existing App Runtime regressions.
 
 Sources: [QEMU release](https://www.qemu.org/download/), [Android-x86 release and hash](https://www.android-x86.org/releases/releasenote-9-0-r2.html), [Android executable restrictions](https://developer.android.com/about/versions/10/behavior-changes-10#execute-permission), [QEMU license](https://www.qemu.org/docs/master/about/license.html).
+
+## Boot investigation — 2026-10-21
+
+The user reaffirmed full Android-in-Android as the project goal and authorized continued VM work. This follow-up remains on the VM branch; it does not promote inherited App Runtime hooks or synthetic Camera2 interception into the QA product.
+
+At alpha.12 commit 7788336 the archived final framebuffer shows the Android boot animation. Guest serial replies report Android 9 and live system_server/surfaceflinger PIDs, but sys.boot_completed is empty. This is partial userspace startup, not a finished boot or proof of a specific cause.
+
+The follow-up bounds console reads by bytes instead of unbounded readLine(), cancels the drain before destroying the process, and handles shutdown IOExceptions within the child coroutine. Unexpected console errors terminate the VM session rather than escaping to the host's uncaught exception handler. The device gate now exercises two start/stop cycles before boot and captures read-only guest properties, processes, memory and recent logcat during the wait and on timeout. The boot-complete and Settings gates remain mandatory; diagnostics never set boot properties or bypass setup.
+
+No new successful Android boot, persistent userdata or physical-device result is claimed by these source changes. Inspect the follow-up workflow results before installing or describing the milestone as complete.
+
+## TCG first-boot profile — alpha.13
+
+Run 39594972176 on 776d8b3 completed the start/stop regression without the prior unhandled read-interrupted host crash. Its guest still failed boot completion. The two serial snapshots show sustained `dex2oat` work on Chrome and Google Play Services, low-memory-killer activity, and changing zygote/system-server PIDs. This is measured pre-boot workload and process churn; lack of guest entropy was a preliminary hypothesis, not the demonstrated main cause.
+
+`VmInitrd` preserves the imported `initrd.img` byte-for-byte and atomically creates `initrd-aether.img` by appending a compressed newc archive. It adds only `scripts/99-aether`. Android-x86's early init sources this directory after unpacking the Android ramdisk. The script appends a post-fs-data action to set first-boot and boot dexopt to `extract` before zygote startup. ART performs class verification when code is loaded; this does not select `assume-verified`. The tradeoff is more interpreter/verification work when an app is first opened instead of optimizing the entire bundled application set before the first UI. The original ISO is not modified or repackaged.
+
+The QEMU command also supplies `virtio-rng-pci` backed by `rng-builtin`. Device/backend construction was checked using the exact packaged x86_64 engine on Linux; Android-host acceptance remains a separate CI gate.
+
+The device report records verified stop cycles and a nonce-tagged readback of the first-boot compiler filter, in addition to boot completion and Settings. Diagnostics include guest memory, /data space and RNG state. Network, audio, persistence and physical ARM64 phone validation remain future gates.
+
+Validation before CI: production Java compiles locally through the JDK compiler module; a JVM harness checks source preservation, repeated preparation, missing/empty/oversized inputs, old-target preservation and cleanup; an independent Python reader checks gzip/newc framing, entry modes and paths; shell syntax and diff checks pass. CI unit tests cover the archive and failure behavior. The subsequent Core profile completed the Android boot and rendered-Settings gates in run 39609419276.
+
+Format reference: https://www.kernel.org/doc/html/latest/driver-api/early-userspace/buffer-format.html
+Android-x86 early init reference: https://github.com/BlissRoms-x86/bootable_newinstaller/blob/pie-x86/initrd/init
+
+## Core guest follow-up
+
+Run 39599875966 on f5f9400 verified both stop cycles and the extract profile, but still failed Android boot completion. Deferring dexopt alone was insufficient; it is not a successful-boot result. The verified ISO's initrd and ramdisk were inspected in runs 39602462163 and 39602750605, and optional package paths were inventoried in run 39603593120.
+
+The VM screen offers Core (default) and Full profiles. Core temporarily masks a fixed list of optional Google packages, Chrome, Gmail and search inside the guest using bind mounts over their APK directories. Framework, Settings, SystemUI, launcher, package installer, providers and WebView remain available. Full retains the bundled packages. The verified source ISO is unchanged. Core uses Android-x86's existing SETUPWIZARD=0 option for this fresh test guest; it does not provision or modify the host.
+
+Both profiles use 2 GiB guest RAM and disable the software-rendered boot animation through debug.sf.nobootanimation before SurfaceFlinger starts. The test host emulator has 4 GiB RAM. Actual sys.boot_completed and Settings remain mandatory gates. Core mode must read back sys.aether.profile=core; failed bind mounts report core-error. Diagnostics also capture the guest crash buffer and ANR tails, including a second mid-boot snapshot. Core boot completion and rendered Settings are verified by run 39609419276. Full-profile boot completion remains unverified.
+
+
+## Verified Core milestone — 2026-10-21
+
+Code revision `d30ea5899db0a5a50f2fb621d29e064fab2b7dbd` passed [Android guest appliance run 39609419276](https://github.com/dromadi/AetherSandbox/actions/runs/39609419276). The API 34 x86_64 host ran the packaged TCG engine with the checksum-pinned Android-x86 9 ISO and the default Core profile. Its report records:
+
+- `sysBootCompletedVerified: true`
+- `stopCyclesVerified: 2`
+- `firstBootExtractProfileVerified: true`
+- `coreGuestProfileVerified: true`
+- `settingsActivityResumed: true`
+- `settingsDisplayRendered: true`
+- `physicalPhoneVerified: false`
+
+The saved `frame-settings.png` was visually inspected: Settings categories, text and icons are visible. The test waits for content inside the display body, excluding system bars, rather than accepting a resumed Activity with a blank window. The earlier `92f9365` report passed boot/resume but its screenshot was still blank, which prompted this stronger gate.
+
+The same appliance run passed ten ARM64 Linux guest boots on each API 26, 34 and 36 emulator. Base builds, unit tests, lint, release/R8, the Linux laboratory and base application tests on API 26/34/36 passed on this revision. Earlier API 26 camera tests produced zero encoded frames intermittently; a green rerun does not establish that separate issue is fixed.
+
+This is a Core guest milestone on an x86_64 emulator. The Full image, physical ARM64 phones, persistent guest data, networking, audio and camera still require their own validation.

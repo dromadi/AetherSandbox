@@ -2,7 +2,7 @@
 
 VirtuBox Core — laboratorium Android non-root untuk container berbasis framework dan video uji.
 
-Versi awal: **0.1.0-alpha.12**. Android 8–16 (minSdk 26, targetSdk 36).
+Versi awal: **0.1.0-alpha.13**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Yang sudah diimplementasikan
 
@@ -16,9 +16,19 @@ Versi awal: **0.1.0-alpha.12**. Android 8–16 (minSdk 26, targetSdk 36).
 - Library native C++20 untuk diagnostik ABI. APK universal menyertakan arm64-v8a, armeabi-v7a, dan x86_64 untuk emulator.
 - Unit test domain, instrumented test fixture, build/lint CI, dan workflow pengujian perangkat.
 
+## Pembaruan alpha.13 — profil Android inti dan perbaikan boot TCG
+
+- **Terverifikasi di emulator API 34/x86_64:** Android inti menyelesaikan boot, Settings aktif dan daftar pengaturannya tampil. Dua siklus stop/restart lolos. [Bukti CI](https://github.com/dromadi/AetherSandbox/actions/runs/39609419276) pada kode `d30ea58`; ini belum bukti HP ARM64 fisik.
+
+- Log alpha.12 menunjukkan boot pertama masih memverifikasi Chrome dan Google Play Services lewat dex2oat setelah 15 menit. Profil TCG menunda pekerjaan itu ke pemuatan kelas ART, memakai filter `extract` sebelum zygote dimulai.
+- Initrd sumber tetap utuh. File turunan menambahkan satu arsip initramfs dengan skrip konfigurasi tetap; ISO tetap diverifikasi melalui jalur impor yang sama.
+- Profil **Android inti** (default) menyembunyikan paket Google tambahan dengan mount sementara di dalam guest. Profil **image lengkap** mempertahankan paket bawaan ISO. Guest memakai RAM 2 GB dan animasi boot dinonaktifkan untuk mengurangi beban software rendering.
+- Guest mendapat perangkat RNG virtio. Pembacaan konsol dibatasi per byte dan interupsi ketika stop ditangani di dalam coroutine.
+- Tes tetap mewajibkan boot selesai, Settings aktif, serta profil boot yang benar. Build atau animasi boot saja bukan hasil lulus. Status aktual ada di PR #11/CI; HP ARM64 fisik dan data permanen belum diverifikasi.
+
 ## Pembaruan alpha.12 — engine VM dan jalur boot Android
 
-- Engine QEMU 11.1.2 statis dibangun dari source untuk host ARM64/x86_64, dikemas dalam APK engine. Build dasar CI tidak membawa engine; pilih artifact `AetherSandbox-0.1.0-alpha.12-engine` dari workflow Android guest appliance.
+- Engine QEMU 11.1.2 statis dibangun dari source untuk host ARM64/x86_64, dikemas dalam APK engine. Build dasar CI tidak membawa engine; pilih artifact `AetherSandbox-0.1.0-alpha.13-engine` dari workflow Android guest appliance.
 - Layar Android guest mengimpor ISO resmi Android-x86 9.0-r2 dengan checksum rilis, mengekstrak kernel/initrd secara terbatas dan memulai PC guest melalui TCG.
 - Display RFB memakai socket Unix privat; sentuhan dan teks diteruskan ke guest. Sesi awal memakai data sementara, tanpa jaringan, audio, kamera atau background VM. Meninggalkan layar menghentikan VM.
 - Tes engine menjalankan boot Linux ARM64 sepuluh kali di dalam Android. Tes guest mengarsipkan framebuffer dan serial; status sys.boot_completed dicatat terpisah. Hasil aktual ada pada PR/CI, bukan diasumsikan dari adanya layar display.
