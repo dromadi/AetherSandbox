@@ -1,0 +1,24 @@
+name: Inspect verified Android boot image
+on:
+  push:
+    branches: [codex/vm-image-inspect]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools
+          bash tools/vm/prepare-android9.sh
+          sha256sum build/android9/initrd.img build/android9/kernel > build/android9/boot-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-android9-boot-files
+          path: |
+            build/android9/initrd.img
+            build/android9/kernel
+            build/android9/boot-sha256.txt
