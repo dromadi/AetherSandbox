@@ -133,11 +133,12 @@ class AndroidVmModel(app: Application) : AndroidViewModel(app) {
     }
     internal suspend fun requestDiagnostics(nonce: String) = withContext(Dispatchers.IO) {
         require(nonce.matches(Regex("[a-zA-Z0-9]+")))
-        // Read-only commands inside the guest. Do not change boot properties or skip setup.
+        // Read-only commands inside the guest.
         runCatching { process?.outputStream?.let { stream ->
             stream.write(("printf '\\nAETHER_DIAGNOSTICS_%s_BEGIN\\n' '$nonce'; " +
                 "logcat -d -b crash -t 100; " +
-                "for f in /data/anr/*; do [ ! -f \"${'
+                "for f in /data/anr/*; do [ ! -f \"\$f\" ] || tail -n 100 \"\$f\"; done; " +
+                "getprop; ps -A; cat /proc/meminfo; df /data; " +
                 "cat /proc/sys/kernel/random/entropy_avail; cat /sys/class/misc/hw_random/rng_current; " +
                 "logcat -d -b all -t 160; " +
                 "printf '\\nAETHER_DIAGNOSTICS_%s_END\\n' '$nonce'\n").toByteArray())
