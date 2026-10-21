@@ -18,6 +18,8 @@ Versi awal: **0.1.0-alpha.13**. Android 8–16 (minSdk 26, targetSdk 36).
 
 ## Pembaruan alpha.13 — profil Android inti dan perbaikan boot TCG
 
+- **Terverifikasi di emulator API 34/x86_64:** Android inti menyelesaikan boot, Settings aktif dan daftar pengaturannya tampil. Dua siklus stop/restart lolos. [Bukti CI](https://github.com/dromadi/AetherSandbox/actions/runs/39609419276) pada kode `d30ea58`; ini belum bukti HP ARM64 fisik.
+
 - Log alpha.12 menunjukkan boot pertama masih memverifikasi Chrome dan Google Play Services lewat dex2oat setelah 15 menit. Profil TCG menunda pekerjaan itu ke pemuatan kelas ART, memakai filter `extract` sebelum zygote dimulai.
 - Initrd sumber tetap utuh. File turunan menambahkan satu arsip initramfs dengan skrip konfigurasi tetap; ISO tetap diverifikasi melalui jalur impor yang sama.
 - Profil **Android inti** (default) menyembunyikan paket Google tambahan dengan mount sementara di dalam guest. Profil **image lengkap** mempertahankan paket bawaan ISO. Guest memakai RAM 2 GB dan animasi boot dinonaktifkan untuk mengurangi beban software rendering.
