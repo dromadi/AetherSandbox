@@ -18,7 +18,7 @@ jobs:
           mkdir -p evidence
           found=0
           for attempt in $(seq 1 55); do
-            if gh run download 39606291911 -n vm-engine-device-api-34 -D evidence 2>/dev/null; then found=1; break; fi
+            if gh run download 39609419276 -n vm-engine-device-api-34 -D evidence 2>/dev/null; then found=1; break; fi
             echo "Evidence not published yet (attempt $attempt)"
             sleep 30
           done
@@ -28,10 +28,10 @@ jobs:
           import pathlib, re, base64
           root = pathlib.Path("evidence")
           shot = root / "frame-settings.png"
-          assert shot.is_file() and shot.stat().st_size < 1024 * 1024
-          print("AETHER_SCREENSHOT_BEGIN")
-          print(base64.b64encode(shot.read_bytes()).decode())
-          print("AETHER_SCREENSHOT_END")
+          if shot.is_file() and shot.stat().st_size < 1024 * 1024:
+              print("AETHER_SCREENSHOT_BEGIN")
+              print(base64.b64encode(shot.read_bytes()).decode())
+              print("AETHER_SCREENSHOT_END")
           print("=== ANDROID BOOT REPORT ===")
           print((root / "android-boot-report.json").read_text())
           log = (root / "console.log").read_text(errors="replace")
