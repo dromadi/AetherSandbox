@@ -1,34 +1,39 @@
-name: Inspect verified Android boot image
+name: VM evidence reader
 on:
   push:
     branches: [codex/vm-image-inspect]
 permissions:
   contents: read
+  actions: read
 jobs:
-  inspect:
+  evidence:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 32
     steps:
-      - uses: actions/checkout@v4
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y libarchive-tools squashfs-tools e2fsprogs
-          bash tools/vm/prepare-android9.sh
-          bsdtar -xOf build/android9/guest.iso ramdisk.img > build/android9/ramdisk.img
-          bsdtar -xOf build/android9/guest.iso system.sfs > build/android9/system.sfs
-          unsquashfs -cat build/android9/system.sfs system.img > build/android9/system.img
-          debugfs -R 'ls -p /app' build/android9/system.img > build/android9/app-list.txt
-          debugfs -R 'ls -p /priv-app' build/android9/system.img > build/android9/priv-app-list.txt
-          debugfs -R 'cat /etc/init.sh' build/android9/system.img > build/android9/guest-init.sh
-          sha256sum build/android9/initrd.img build/android9/kernel > build/android9/boot-sha256.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: verified-android9-boot-files
-          path: |
-            build/android9/initrd.img
-            build/android9/kernel
-            build/android9/ramdisk.img
-            build/android9/boot-sha256.txt
-            build/android9/app-list.txt
-            build/android9/priv-app-list.txt
-            build/android9/guest-init.sh
+      - name: Read API 34 guest evidence from the current fix run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: dromadi/AetherSandbox
+        run: |
+          mkdir -p evidence
+          found=0
+          for attempt in $(seq 1 55); do
+            if gh run download 39606291911 -n vm-engine-device-api-34 -D evidence 2>/dev/null; then found=1; break; fi
+            echo "Evidence not published yet (attempt $attempt)"
+            sleep 30
+          done
+          test "$found" = 1
+          tar -xf evidence/guest-evidence.tar -C evidence
+          python3 - <<'PY'
+          import pathlib, re
+          root = pathlib.Path("evidence")
+          print("=== ANDROID BOOT REPORT ===")
+          print((root / "android-boot-report.json").read_text())
+          log = (root / "console.log").read_text(errors="replace")
+          print("=== BOOT AND FAILURE MARKERS ===")
+          lines = [line for line in log.splitlines() if re.search(r"FATAL EXCEPTION|WATCHDOG KILLING|core-error|AETHER_GUEST_FLAVOR_.*=core|AETHER_GUEST_BOOT_.*=1", line)]
+          print("\n".join(lines)[-20000:])
+          starts = list(re.finditer(r"(?m)^AETHER_DIAGNOSTICS_[a-zA-Z0-9]+_BEGIN", log))
+          print("=== LATEST GUEST DIAGNOSTICS ===")
+          print(log[starts[-1].start():][:70000] if starts else log[-50000:])
+          PY
