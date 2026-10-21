@@ -25,8 +25,13 @@ jobs:
           test "$found" = 1
           tar -xf evidence/guest-evidence.tar -C evidence
           python3 - <<'PY'
-          import pathlib, re
+          import pathlib, re, base64
           root = pathlib.Path("evidence")
+          shot = root / "frame-settings.png"
+          assert shot.is_file() and shot.stat().st_size < 1024 * 1024
+          print("AETHER_SCREENSHOT_BEGIN")
+          print(base64.b64encode(shot.read_bytes()).decode())
+          print("AETHER_SCREENSHOT_END")
           print("=== ANDROID BOOT REPORT ===")
           print((root / "android-boot-report.json").read_text())
           log = (root / "console.log").read_text(errors="replace")
