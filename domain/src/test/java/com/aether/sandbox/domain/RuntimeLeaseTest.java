@@ -63,4 +63,22 @@ public class RuntimeLeaseTest {
             assertFalse(root.exists());
         } finally { parent.delete(); }
     }
+
+    @Test public void isHeldReportsLocalAndCrossProcessOwnersWithoutKeepingTheLease() throws Exception {
+        File root = Files.createTempDirectory("runtime-lease").toFile();
+        String id = UUID.randomUUID().toString();
+        try {
+            assertFalse(RuntimeLease.isHeld(root, id));
+            try (RuntimeLease held = RuntimeLease.acquire(root, id)) {
+                assertTrue(RuntimeLease.isHeld(root, id));
+                // A probe of a locally held lease must not release the OS lock.
+                assertEquals(3, probe(root, id));
+            }
+            assertFalse(RuntimeLease.isHeld(root, id));
+            assertEquals(0, probe(root, id));
+            try (RuntimeLease again = RuntimeLease.acquire(root, id)) {
+                assertThrows(RuntimeLease.Busy.class, () -> RuntimeLease.acquire(root, id));
+            }
+        } finally { for (File file : root.listFiles()) file.delete(); root.delete(); }
+    }
 }

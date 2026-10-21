@@ -82,6 +82,35 @@ class GuestRuntimeTest {
         }
     }
 
+    @Test fun hostReportsRunningGuestAndStopsItRemotely() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val host = instrumentation.targetContext
+        val source = File(host.cacheDir, "control-fixture.apk")
+        instrumentation.context.assets.open("fixture.apk").use { input -> source.outputStream().use { input.copyTo(it) } }
+        val repository = SandboxRepository(host)
+        val record = repository.importApk(Uri.fromFile(source))
+        val device = UiDevice.getInstance(instrumentation)
+        try {
+            assertFalse(repository.isRunning(record.id))
+            assertEquals(emptySet<String>(), repository.runningIds().intersect(setOf(record.id)))
+            host.startActivity(Intent(host, ProxyActivity::class.java)
+                .putExtra(ProxyActivity.EXTRA_ID, record.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            assertTrue("Guest view did not appear", device.wait(Until.hasObject(By.textContains("Persistent counter")), 15000))
+            assertTrue(repository.isRunning(record.id))
+            assertTrue(record.id in repository.runningIds())
+            // Probing must not steal the runtime's lease.
+            assertThrows(java.io.IOException::class.java) { repository.delete(record.id) }
+            repository.stop(record.id)
+            assertFalse(repository.isRunning(record.id))
+            assertTrue("Runtime screen still visible", device.wait(Until.gone(By.textContains("Persistent counter")), 5000))
+            repository.stop(record.id) // Stopping an idle instance is a no-op.
+        } finally {
+            runCatching { repository.stop(record.id) }
+            repository.delete(record.id)
+            source.delete()
+        }
+    }
+
     @Test fun fixtureLoadsAndInstancesKeepIndependentPersistentState() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val host = instrumentation.targetContext
