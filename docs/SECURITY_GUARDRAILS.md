@@ -37,6 +37,19 @@ Metode: `grep -rnE 'HiddenApiBypass|LSPlant|AliuHook|ActivityThread|setAccessibl
 
 Temuan: **satu** pemanggilan refleksi — `GeneralGuestLoader` memanggil `ContextWrapper.attachBaseContext(Context)` (metode `protected` SDK publik) untuk memasang `VirtualContext` ke `Application` guest. Tidak ditemukan hidden-API unlock, ART hook, swap Instrumentation, proxy Binder sistem, atau interceptor kamera. Branch ini **patuh** pada batasan di atas.
 
-## Catatan lintas-branch
+## Kebijakan dua jalur (disepakati 2026-10-21)
 
-Branch `codex/aether-alpha6`–`alpha9` menambahkan kemampuan yang **melewati batas dokumen ini**: `GuestActivityRuntime` memakai `HiddenApiBypass` dan mengganti `ActivityThread.mInstrumentation`, dan `Camera2VideoBridge` memakai `HiddenApiBypass`/LSPlant/AliuHook untuk `CameraDevice`/`CaptureSession` sintetis. Mengadopsi guardrails ini berarti kemampuan tersebut **tidak** digabung ke jalur produk ini tanpa peninjauan dan keputusan tertulis yang baru atas scope dan risiko penyalahgunaan (KYC/anti-fraud).
+Pengembangan dipisah menjadi dua jalur yang tidak boleh tercampur tanpa keputusan tertulis baru.
+
+### Jalur produk — QA-safe (dipatuhi guardrails)
+
+- Basis: alpha.5 (branch `ccr-08eb172e-6m6hzh`, PR #3). Patuh penuh pada batasan di atas.
+- Hanya jalur ini yang boleh dirilis, dipasang, atau dipromosikan sebagai AetherSandbox.
+- Setiap perubahan ke jalur ini wajib lulus audit yang sama (bagian "Hasil audit") sebelum merge: tidak ada hidden-API unlock, ART hook, swap Instrumentation, proxy Binder sistem, atau interceptor kamera.
+
+### Jalur riset — tidak dirilis
+
+- Branch `codex/aether-alpha6`–`alpha9` (PR #4–#7). Berisi kemampuan yang **melewati batas dokumen ini**: `GuestActivityRuntime` (HiddenApiBypass + penggantian `ActivityThread.mInstrumentation`) dan `Camera2VideoBridge` (HiddenApiBypass/LSPlant/AliuHook untuk `CameraDevice`/`CaptureSession` sintetis).
+- Status: **eksperimen internal saja.** Tidak di-merge ke `main`, tidak dirilis, tidak dipasarkan, selama guardrails ini berlaku.
+- Nilai sahnya adalah riset kompatibilitas runtime. Mengangkat salah satu kemampuannya ke jalur produk memerlukan keputusan tertulis baru yang menilai ulang scope dan risiko penyalahgunaan (KYC/anti-fraud), dan harus memperbarui dokumen ini lebih dulu.
+- Interceptor kamera sintetis yang menyamar sebagai kamera fisik di hadapan aplikasi pihak ketiga tetap dilarang untuk diangkat ke produk, apa pun hasil risetnya.
