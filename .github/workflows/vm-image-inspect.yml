@@ -12,9 +12,14 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           sudo apt-get update
-          sudo apt-get install -y libarchive-tools
+          sudo apt-get install -y libarchive-tools squashfs-tools e2fsprogs
           bash tools/vm/prepare-android9.sh
           bsdtar -xOf build/android9/guest.iso ramdisk.img > build/android9/ramdisk.img
+          bsdtar -xOf build/android9/guest.iso system.sfs > build/android9/system.sfs
+          unsquashfs -cat build/android9/system.sfs system.img > build/android9/system.img
+          debugfs -R 'ls -p /app' build/android9/system.img > build/android9/app-list.txt
+          debugfs -R 'ls -p /priv-app' build/android9/system.img > build/android9/priv-app-list.txt
+          debugfs -R 'cat /etc/init.sh' build/android9/system.img > build/android9/guest-init.sh
           sha256sum build/android9/initrd.img build/android9/kernel > build/android9/boot-sha256.txt
       - uses: actions/upload-artifact@v4
         with:
@@ -24,3 +29,6 @@ jobs:
             build/android9/kernel
             build/android9/ramdisk.img
             build/android9/boot-sha256.txt
+            build/android9/app-list.txt
+            build/android9/priv-app-list.txt
+            build/android9/guest-init.sh
