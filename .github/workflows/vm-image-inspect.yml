@@ -14,6 +14,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libarchive-tools
           bash tools/vm/prepare-android9.sh
+          bsdtar -xOf build/android9/guest.iso ramdisk.img > build/android9/ramdisk.img
           sha256sum build/android9/initrd.img build/android9/kernel > build/android9/boot-sha256.txt
       - uses: actions/upload-artifact@v4
         with:
@@ -21,4 +22,5 @@ jobs:
           path: |
             build/android9/initrd.img
             build/android9/kernel
+            build/android9/ramdisk.img
             build/android9/boot-sha256.txt
