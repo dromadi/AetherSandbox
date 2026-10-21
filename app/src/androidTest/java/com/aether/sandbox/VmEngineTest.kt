@@ -46,7 +46,7 @@ class VmEngineTest {
         val activity = instrumentation.startActivitySync(Intent(host, AndroidVmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as AndroidVmActivity
         val model = withContext(Dispatchers.Main) { ViewModelProvider.create(activity)[AndroidVmModel::class.java] }
         val token = UUID.randomUUID().toString().replace("-", "")
-        var frames = 0; var booted = false
+        var frames = 0; var booted = false; var stopCycles = 0; var profileApplied = false
         try {
             // Reproduce the old read-interrupted crash while a serial drain is active.
             repeat(2) {
@@ -55,6 +55,7 @@ class VmEngineTest {
                 withContext(Dispatchers.Main) { model.stop() }
                 withTimeout(10_000) { model.awaitStopped() }
                 assertFalse("Stop must clear the running state", model.state.value.running)
+                stopCycles++
             }
             model.start()
             for (round in 0 until 30) {
@@ -68,6 +69,7 @@ class VmEngineTest {
                 delay(1_000)
                 val log = File(root, "console.log").takeIf { it.exists() }?.readText().orEmpty()
                 booted = booted || log.contains("AETHER_GUEST_BOOT_${token}=1")
+                profileApplied = profileApplied || log.contains("AETHER_GUEST_PROFILE_${token}=extract")
                 if (!model.state.value.running) error(model.state.value.status)
                 if (booted) break
             }
@@ -90,9 +92,12 @@ class VmEngineTest {
             File(root, "android-boot-report.json").writeText(JSONObject()
                 .put("hostApi", Build.VERSION.SDK_INT).put("hostAbi", Build.SUPPORTED_ABIS.first())
                 .put("displayFrames", frames).put("sysBootCompletedVerified", booted)
+                .put("stopCyclesVerified", stopCycles)
+                .put("firstBootExtractProfileVerified", profileApplied)
                 .put("settingsActivityResumed", settings)
                 .put("physicalPhoneVerified", false).toString(2))
             assertTrue("No display frames received", frames > 0)
+            assertTrue("Guest did not apply the TCG first-boot profile", profileApplied)
             assertTrue("Guest did not finish Android boot; see console.log and saved display frames", booted)
             assertTrue("Guest Settings Activity did not resume", settings)
         } finally { withContext(Dispatchers.Main) { model.stop(); activity.finish() } }

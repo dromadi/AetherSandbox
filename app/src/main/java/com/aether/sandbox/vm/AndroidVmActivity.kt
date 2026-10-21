@@ -123,7 +123,9 @@ class AndroidVmModel(app: Application) : AndroidViewModel(app) {
         // The serial command runs INSIDE the guest, never in a host shell. Format and token are
         // split so terminal echo cannot be mistaken for a successful getprop response.
         runCatching { process?.outputStream?.let { stream ->
-            stream.write(("printf 'AETHER_GUEST_BOOT_%s=' '$nonce'; getprop sys.boot_completed; getprop ro.build.version.release; pidof system_server; pidof surfaceflinger\n").toByteArray())
+            stream.write(("printf 'AETHER_GUEST_BOOT_%s=' '$nonce'; getprop sys.boot_completed; " +
+                "getprop ro.build.version.release; pidof system_server; pidof surfaceflinger; " +
+                "printf 'AETHER_GUEST_PROFILE_%s=' '$nonce'; getprop pm.dexopt.first-boot\n").toByteArray())
             stream.flush()
         } }
     }
@@ -132,7 +134,9 @@ class AndroidVmModel(app: Application) : AndroidViewModel(app) {
         // Read-only commands inside the guest. Do not change boot properties or skip setup.
         runCatching { process?.outputStream?.let { stream ->
             stream.write(("printf '\\nAETHER_DIAGNOSTICS_%s_BEGIN\\n' '$nonce'; " +
-                "getprop; ps -A; cat /proc/meminfo; logcat -d -b all -t 160; " +
+                "getprop; ps -A; df -k /data; cat /proc/meminfo; " +
+                "cat /proc/sys/kernel/random/entropy_avail; cat /sys/class/misc/hw_random/rng_current; " +
+                "logcat -d -b all -t 160; " +
                 "printf '\\nAETHER_DIAGNOSTICS_%s_END\\n' '$nonce'\n").toByteArray())
             stream.flush()
         } }

@@ -1,4 +1,4 @@
-# Android guest engine — alpha.12
+# Android guest engine — alpha.13
 
 Work in progress. The final PR records measured CI results and screenshots. Do not infer boot success from the existence of these files.
 
@@ -46,3 +46,18 @@ At alpha.12 commit 7788336 the archived final framebuffer shows the Android boot
 The follow-up bounds console reads by bytes instead of unbounded readLine(), cancels the drain before destroying the process, and handles shutdown IOExceptions within the child coroutine. Unexpected console errors terminate the VM session rather than escaping to the host's uncaught exception handler. The device gate now exercises two start/stop cycles before boot and captures read-only guest properties, processes, memory and recent logcat during the wait and on timeout. The boot-complete and Settings gates remain mandatory; diagnostics never set boot properties or bypass setup.
 
 No new successful Android boot, persistent userdata or physical-device result is claimed by these source changes. Inspect the follow-up workflow results before installing or describing the milestone as complete.
+
+## TCG first-boot profile — alpha.13
+
+Run 39594972176 on 776d8b3 completed the start/stop regression without the prior unhandled read-interrupted host crash. Its guest still failed boot completion. The two serial snapshots show sustained `dex2oat` work on Chrome and Google Play Services, low-memory-killer activity, and changing zygote/system-server PIDs. This is measured pre-boot workload and process churn; lack of guest entropy was a preliminary hypothesis, not the demonstrated main cause.
+
+`VmInitrd` preserves the imported `initrd.img` byte-for-byte and atomically creates `initrd-aether.img` by appending a compressed newc archive. It adds only `scripts/99-aether`. Android-x86's early init sources this directory after unpacking the Android ramdisk. The script appends a post-fs-data action to set first-boot and boot dexopt to `extract` before zygote startup. ART performs class verification when code is loaded; this does not select `assume-verified`. The tradeoff is more interpreter/verification work when an app is first opened instead of optimizing the entire bundled application set before the first UI. The original ISO is not modified or repackaged.
+
+The QEMU command also supplies `virtio-rng-pci` backed by `rng-builtin`. Device/backend construction was checked using the exact packaged x86_64 engine on Linux; Android-host acceptance remains a separate CI gate.
+
+The device report records verified stop cycles and a nonce-tagged readback of the first-boot compiler filter, in addition to boot completion and Settings. Diagnostics include guest memory, /data space and RNG state. Network, audio, persistence and physical ARM64 phone validation remain future gates.
+
+Validation before CI: production Java compiles locally through the JDK compiler module; a JVM harness checks source preservation, repeated preparation, missing/empty/oversized inputs, old-target preservation and cleanup; an independent Python reader checks gzip/newc framing, entry modes and paths; shell syntax and diff checks pass. CI unit tests cover the archive and failure behavior. Full Android boot success is pending the alpha.13 device run.
+
+Format reference: https://www.kernel.org/doc/html/latest/driver-api/early-userspace/buffer-format.html
+Android-x86 early init reference: https://github.com/BlissRoms-x86/bootable_newinstaller/blob/pie-x86/initrd/init

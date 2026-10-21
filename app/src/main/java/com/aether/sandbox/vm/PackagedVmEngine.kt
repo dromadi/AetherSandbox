@@ -2,6 +2,7 @@ package com.aether.sandbox.vm
 
 import android.content.Context
 import com.aether.sandbox.domain.Iso9660
+import com.aether.sandbox.domain.VmInitrd
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
@@ -58,9 +59,11 @@ object PackagedVmEngine {
         return listOf(executable(context, "x86_64").path, "-L", prepareFirmware(context).path,
             "-machine", "pc-i440fx-10.0", "-accel", "tcg,thread=multi", "-cpu", "qemu64,+ssse3,+sse4.1,+sse4.2,+popcnt", "-smp", "2",
             "-m", "1024M", "-no-user-config", "-nic", "none", "-display", "none", "-vga", "std",
+            // Supply OS-backed entropy even before user input or disk activity exists.
+            "-object", "rng-builtin,id=entropy0", "-device", "virtio-rng-pci,rng=entropy0",
             "-vnc", "unix:${socket.path}", "-monitor", "none", "-serial", "stdio", "-no-reboot",
             "-usb", "-device", "usb-tablet", "-kernel", File(root, "kernel").path,
-            "-initrd", File(root, "initrd.img").path,
+            "-initrd", VmInitrd.prepare(root).path,
             "-drive", "file=${File(root, "guest.iso").path},format=raw,media=cdrom,readonly=on",
             "-append", "root=/dev/ram0 androidboot.hardware=android_x86_64 SRC=/ DATA= console=tty0 console=ttyS0,115200 androidboot.console=ttyS0 nomodeset xforcevesa vga=835 HWACCEL=0")
     }
