@@ -57,6 +57,15 @@ class VmEngineTest {
         // Exercise the production checksum, bounded ISO reader and atomic replacement,
         // not just the host-side bsdtar fixture extraction.
         PackagedVmEngine.importIso(host, android.net.Uri.fromFile(File(root, "guest.iso")))
+        // Alpha.14 regression: network remains opt-in, transfer is read-only and
+        // no file-sharing disk exists when the bridge has not been staged.
+        val socket = File(host.cacheDir, "vm-test.sock")
+        val offline = PackagedVmEngine.androidArguments(host, socket)
+        assertTrue(offline.contains("none"))
+        assertFalse(offline.any { it.contains("fat:ro:") })
+        val online = PackagedVmEngine.androidArguments(host, socket, guestNetwork = true)
+        assertTrue(online.contains("user,model=rtl8139,ipv6=off"))
+        assertFalse(online.any { it.contains("hostfwd=") })
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val activity = instrumentation.startActivitySync(Intent(host, AndroidVmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as AndroidVmActivity
         val model = withContext(Dispatchers.Main) { ViewModelProvider.create(activity)[AndroidVmModel::class.java] }

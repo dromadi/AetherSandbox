@@ -6,6 +6,7 @@ import com.aether.sandbox.domain.VmInitrd
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.zip.ZipFile
 import kotlinx.coroutines.*
 
 object PackagedVmEngine {
@@ -52,13 +53,58 @@ object PackagedVmEngine {
             backup.deleteRecursively()
         } finally { pending.deleteRecursively() }
     }
-    fun androidArguments(context: Context, socket: File, coreGuest: Boolean = true): List<String> {
+    /** A single checksum-checked universal APK is staged in a private, read-only share. */
+    suspend fun stageGuestApk(context: Context, uri: android.net.Uri): String = withContext(Dispatchers.IO) {
+        val bridge = File(directory(context), "apk-bridge").apply { mkdirs() }
+        val temp = File(bridge, "pending-" + UUID.randomUUID() + ".apk")
+        val limit = 128L * 1024 * 1024
+        try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            requireNotNull(context.contentResolver.openInputStream(uri)).use { input ->
+                temp.outputStream().use { output ->
+                    val buffer = ByteArray(65536)
+                    var total = 0L
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        total += read
+                        require(total <= limit) { "APK lebih dari 128 MiB" }
+                        digest.update(buffer, 0, read)
+                        output.write(buffer, 0, read)
+                    }
+                    output.fd.sync()
+                }
+            }
+            ZipFile(temp).use { zip ->
+                require(zip.getEntry("AndroidManifest.xml") != null) { "Bukan berkas APK" }
+            }
+            @Suppress("DEPRECATION")
+            val packageInfo = context.packageManager.getPackageArchiveInfo(temp.path, 0)
+            require(packageInfo != null) { "APK tidak dapat dibaca Android; gunakan APK universal" }
+            val target = File(bridge, "transfer.apk")
+            // No untrusted filename reaches QEMU or the guest shell.
+            if (!temp.renameTo(target)) error("Gagal menyimpan APK transfer")
+            val sha = digest.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
+            packageInfo.packageName + " • SHA-256 " + sha.take(12)
+        } finally { temp.delete() }
+    }
+
+    fun hasStagedGuestApk(context: Context): Boolean =
+        File(directory(context), "apk-bridge/transfer.apk").isFile
+
+    fun androidArguments(context: Context, socket: File, coreGuest: Boolean = true,
+                         guestNetwork: Boolean = false): List<String> {
         val root = directory(context)
         require(listOf("guest.iso", "kernel", "initrd.img").all { File(root, it).isFile }) { "Impor ISO Android-x86 9.0-r2 terlebih dahulu" }
         require(socket.path.length < 100) { "Jalur socket terlalu panjang" }
+        val apkBridge = File(root, "apk-bridge")
+        val hasApk = File(apkBridge, "transfer.apk").isFile
         return listOf(executable(context, "x86_64").path, "-L", prepareFirmware(context).path,
             "-machine", "pc-i440fx-10.0", "-accel", "tcg,thread=multi", "-cpu", "qemu64,+ssse3,+sse4.1,+sse4.2,+popcnt", "-smp", "2",
-            "-m", "2048M", "-no-user-config", "-nic", "none", "-display", "none", "-vga", "std",
+            "-m", "2048M", "-no-user-config", "-nic",
+            if (guestNetwork) "user,model=rtl8139,ipv6=off" else "none",
+            "-display", "none", "-vga", "std",
             // Supply OS-backed entropy even before user input or disk activity exists.
             "-object", "rng-builtin,id=entropy0", "-device", "virtio-rng-pci,rng=entropy0",
             "-vnc", "unix:${socket.path}", "-monitor", "none", "-serial", "stdio", "-no-reboot",
@@ -66,7 +112,10 @@ object PackagedVmEngine {
             "-initrd", VmInitrd.prepare(root, coreGuest).path,
             "-drive", "file=${File(root, "guest.iso").path},format=raw,media=cdrom,readonly=on",
             "-append", "root=/dev/ram0 androidboot.hardware=android_x86_64 SRC=/ DATA= console=tty0 console=ttyS0,115200 androidboot.console=ttyS0 nomodeset xforcevesa vga=835 HWACCEL=0" +
-                if (coreGuest) " SETUPWIZARD=0" else "")
+                if (coreGuest) " SETUPWIZARD=0" else "") +
+                // A read-only virtual FAT disk, visible only inside the Android guest. It is
+                // attached at boot, never dynamically hot-plugged or exposed over TCP.
+                (if (hasApk) listOf("-drive", "file=fat:ro:${apkBridge.absolutePath},format=raw,media=disk,if=ide,index=1") else emptyList())
     }
     suspend fun linuxBoot(context: Context): String = withContext(Dispatchers.IO) {
         require(available(context)) { "APK ini belum membawa engine untuk ABI perangkat" }

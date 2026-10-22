@@ -28,6 +28,8 @@ import kotlinx.coroutines.channels.Channel
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
+import com.aether.sandbox.domain.GuestApkInstallCommand
+import java.util.UUID
 
 data class AndroidVmState(val running: Boolean = false, val busy: Boolean = false,
     val status: String = "Berhenti", val frame: Bitmap? = null)
@@ -49,6 +51,49 @@ class AndroidVmModel(app: Application) : AndroidViewModel(app) {
             catch (e: Exception) { mutable.value = AndroidVmState(status = "Impor gagal: ${e.message}") }
         }
     }
+    fun importGuestApk(uri: android.net.Uri) {
+        if (mutable.value.running || mutable.value.busy || job?.isCompleted == false) return
+        mutable.value = AndroidVmState(busy = true, status = "Memeriksa APK untuk transfer…")
+        viewModelScope.launch {
+            try {
+                val details = PackagedVmEngine.stageGuestApk(app, uri)
+                mutable.value = AndroidVmState(status = "APK siap: $details. Boot Android, lalu tekan Pasang APK.")
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { mutable.value = AndroidVmState(status = "Impor APK gagal: ${e.message}") }
+        }
+    }
+    fun installGuestApk() {
+        val session = process ?: return
+        if (!mutable.value.running || !PackagedVmEngine.hasStagedGuestApk(app)) return
+        val token = UUID.randomUUID().toString().replace("-", "")
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                mutable.value = mutable.value.copy(status = "Meminta instalasi APK di Android guest…")
+                session.outputStream.write(GuestApkInstallCommand.create(token).toByteArray(Charsets.US_ASCII))
+                session.outputStream.flush()
+                withTimeout(90_000) {
+                    while (isActive && session.isAlive) {
+                        delay(1000)
+                        val log = File(PackagedVmEngine.directory(app), "console.log")
+                            .takeIf { it.exists() }?.readText().orEmpty()
+                        val marker = "AETHER_APK_${token}_"
+                        if (log.contains(marker + "OK")) {
+                            mutable.value = mutable.value.copy(status = "APK berhasil dipasang pada sesi guest ini. Data belum persisten.")
+                            return@withTimeout
+                        }
+                        if (log.contains(marker + "FAIL")) {
+                            mutable.value = mutable.value.copy(status = "Instalasi guest gagal; periksa console.log. Pastikan Settings sudah tampil.")
+                            return@withTimeout
+                        }
+                    }
+                }
+            } catch (e: TimeoutCancellationException) {
+                if (session.isAlive) mutable.value = mutable.value.copy(status = "Instalasi belum terkonfirmasi dalam 90 detik; lihat log guest.")
+            } catch (e: Exception) {
+                if (session.isAlive) mutable.value = mutable.value.copy(status = "Perintah instalasi gagal: ${e.message}")
+            }
+        }
+    }
     fun linux() {
         if (mutable.value.running || mutable.value.busy) return
         mutable.value = AndroidVmState(busy = true, status = "Boot Linux ARM64 melalui engine…")
@@ -58,14 +103,14 @@ class AndroidVmModel(app: Application) : AndroidViewModel(app) {
             catch (e: Exception) { mutable.value = AndroidVmState(status = "Boot Linux gagal: ${e.message}") }
         }
     }
-    fun start(coreGuest: Boolean = true) {
+    fun start(coreGuest: Boolean = true, guestNetwork: Boolean = false) {
         if (mutable.value.running || mutable.value.busy || job?.isCompleted == false) return
         mutable.value = AndroidVmState(running = true, status = "Memulai Android 9 guest…")
         job = viewModelScope.launch(Dispatchers.IO) {
             val socket = File(app.cacheDir, "vm-display.sock").also { it.delete() }
             try {
                 require(PackagedVmEngine.available(app)) { "Engine tidak tersedia untuk ABI perangkat" }
-                val child = ProcessBuilder(PackagedVmEngine.androidArguments(app, socket, coreGuest)).redirectErrorStream(true).start()
+                val child = ProcessBuilder(PackagedVmEngine.androidArguments(app, socket, coreGuest, guestNetwork)).redirectErrorStream(true).start()
                 process = child
                 val log = File(PackagedVmEngine.directory(app), "console.log")
                 val consoleFailure = AtomicReference<IOException?>(null)
@@ -176,22 +221,34 @@ class AndroidVmActivity : ComponentActivity() {
             }
             var text by remember { mutableStateOf("") }
             var coreGuest by rememberSaveable { mutableStateOf(true) }
+            var guestNetwork by rememberSaveable { mutableStateOf(false) }
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::import) }
+            val apkPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(model::importGuestApk) }
             Surface(Modifier.fillMaxSize()) {
                 Column(Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Android guest • Eksperimen", style = MaterialTheme.typography.titleLarge)
-                    Text("Android-x86 9.0-r2 • RAM guest 2 GB. Data sementara; jaringan, audio dan kamera belum diaktifkan. Sesi berhenti saat layar ini ditinggalkan.", style = MaterialTheme.typography.bodySmall)
+                    Text("Android-x86 9.0-r2 • RAM 2 GiB. Data guest masih sementara, tanpa audio dan kamera. Jaringan opsional, fitur riset; VM berhenti saat layar ditinggalkan.", style = MaterialTheme.typography.bodySmall)
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Switch(checked = coreGuest, enabled = !state.running && !state.busy, onCheckedChange = { coreGuest = it })
                         Text(if (coreGuest) "Android inti • tanpa Play Store dan akun Google" else "Image lengkap • eksperimental")
                     }
                     Text("Profil inti mengurangi beban boot pertama. Pilih image lengkap untuk mempertahankan seluruh paket bawaan ISO.", style = MaterialTheme.typography.bodySmall)
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Switch(checked = guestNetwork, enabled = !state.running && !state.busy, onCheckedChange = { guestNetwork = it })
+                        Text("Jaringan guest (NAT) • percobaan, tanpa port forwarding")
+                    }
+                    Text("Jaringan memungkinkan guest mengakses jaringan lewat host. Matikan bila menguji APK tidak tepercaya. Tidak ada klaim internet berhasil sebelum tes guest.", style = MaterialTheme.typography.bodySmall)
                     Text(state.status)
                     if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(enabled = !state.busy && !state.running, onClick = { picker.launch(arrayOf("application/octet-stream", "application/x-iso9660-image", "*/*")) }) { Text("Impor ISO") }
-                        Button(enabled = !state.busy && !state.running && PackagedVmEngine.available(this@AndroidVmActivity), onClick = { model.start(coreGuest) }) { Text("Boot Android") }
+                        Button(enabled = !state.busy && !state.running && PackagedVmEngine.available(this@AndroidVmActivity), onClick = { model.start(coreGuest, guestNetwork) }) { Text("Boot Android") }
                     }
+                    if (!state.running) OutlinedButton(enabled = !state.busy, onClick = { apkPicker.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream", "*/*")) }) { Text("Impor APK ke guest") }
+                    if (state.running && PackagedVmEngine.hasStagedGuestApk(this@AndroidVmActivity)) {
+                        Button(onClick = model::installGuestApk) { Text("Pasang APK di Android") }
+                    }
+                    Text("APK hanya bisa disiapkan saat VM berhenti. Transfer memakai drive FAT read-only privat saat boot. Instalasi guest perlu berhasil sebelum aplikasi bisa digunakan.", style = MaterialTheme.typography.bodySmall)
                     if (state.running) Button(onClick = model::stop) { Text("Hentikan VM") }
                     if (!state.running) OutlinedButton(enabled = !state.busy && PackagedVmEngine.available(this@AndroidVmActivity), onClick = model::linux) { Text("Boot Linux uji") }
                     state.frame?.let { bitmap ->
