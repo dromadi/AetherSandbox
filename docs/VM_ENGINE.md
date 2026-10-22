@@ -88,3 +88,34 @@ The saved `frame-settings.png` was visually inspected: Settings categories, text
 The same appliance run passed ten ARM64 Linux guest boots on each API 26, 34 and 36 emulator. Base builds, unit tests, lint, release/R8, the Linux laboratory and base application tests on API 26/34/36 passed on this revision. Earlier API 26 camera tests produced zero encoded frames intermittently; a green rerun does not establish that separate issue is fixed.
 
 This is a Core guest milestone on an x86_64 emulator. The Full image, physical ARM64 phones, persistent guest data, networking, audio and camera still require their own validation.
+
+
+## Alpha.14 — opt-in networking and APK guest bridge (research branch)
+
+The QEMU Android guest now has a per-boot network switch. Networking is **off by
+default**; opt-in uses QEMU user-mode NAT with an rtl8139 guest NIC, IPv6 off,
+and **no inbound host port forwarding**. Guest DHCP/DNS/connectivity and Android
+application compatibility remain acceptance tests, not assumptions. The host
+already holds INTERNET permission. Disable guest networking for untrusted APKs.
+
+An APK picked through Android's document picker is copied to a private staging
+directory with an upper bound of 128 MiB. ZIP/manifest and Android package metadata
+are checked before the staged file atomically replaces the previous APK; the host
+never uses an arbitrary filename in a guest shell. At the **next boot** a
+read-only QEMU virtual FAT disk provides that single APK to the guest. The
+Install action searches attached block devices, mounts the FAT disk read-only,
+copies the APK inside the guest to /data/local/tmp, and uses guest-side pm install.
+The console reports nonce-delimited OK/FAIL markers. Host shell execution and TCP
+management endpoints are not used. Packaging and command generation are tested,
+but successful end-to-end APK installation on a physical phone is **not claimed**.
+
+Important: the guest remains live/ephemeral: installed apps, accounts and data
+are **lost at poweroff**. Neither backing storage nor secure per-VM isolation
+are implied by this bridge. Android 9, unknown third-party APKs, banking and
+Play Integrity are **not supported or endorsed**. The VM research branch
+inherits incompatible experimental app-runtime hooks: do not merge into QA-safe
+main before architectural and security review.
+
+Next evidence gates: execute the guest installer in the API 34 appliance test,
+verify independent guest networking via DHCP/HTTP, then add a filesystem-backed
+/data profile with crash/restart durability before advertising persistence.
